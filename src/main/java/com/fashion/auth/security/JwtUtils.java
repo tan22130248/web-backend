@@ -37,6 +37,22 @@ public class JwtUtils {
         return parseClaims(token).getSubject();
     }
 
+    public String getEmailFromToken(String token) {
+        try {
+            return (String) parseClaims(token).get("email");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String getRoleFromToken(String token) {
+        try {
+            return (String) parseClaims(token).get("role");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
