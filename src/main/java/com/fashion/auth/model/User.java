@@ -66,7 +66,7 @@ public class User {
 
     @Id
     @UuidGenerator
-    @Column(length = 36, updatable = false, nullable = false)
+    @Column(columnDefinition = "char(36)", updatable = false, nullable = false)
     private String id;
 
     @Column(name = "full_name", nullable = false, length = 150)
