@@ -38,13 +38,12 @@ public class OtpService {
         msg.setTo(email);
         msg.setSubject("FashionHub – Mã xác thực OTP");
         msg.setText(
-            "Xin chào!\n\n" +
-            "Mã OTP đăng ký tài khoản FashionHub của bạn là:\n\n" +
-            "  " + otp + "\n\n" +
-            "Mã có hiệu lực trong " + ttlMinutes + " phút.\n" +
-            "Không chia sẻ mã này với bất kỳ ai.\n\n" +
-            "Trân trọng,\nFashionHub Team"
-        );
+                "Xin chào!\n\n" +
+                        "Mã OTP đăng ký tài khoản FashionHub của bạn là:\n\n" +
+                        "  " + otp + "\n\n" +
+                        "Mã có hiệu lực trong " + ttlMinutes + " phút.\n" +
+                        "Không chia sẻ mã này với bất kỳ ai.\n\n" +
+                        "Trân trọng,\nFashionHub Team");
         mailSender.send(msg);
     }
 

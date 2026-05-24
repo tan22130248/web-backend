@@ -155,6 +155,14 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/products/**",
+                                "/api/categories/**",
+                                "/api/shops/**"
+                        ).permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST,
+                                "/api/products/batch"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
