@@ -12,4 +12,5 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     Page<Order> findByShopIdOrderByCreatedAtDesc(String shopId, Pageable pageable);
     List<Order> findByBuyerIdAndStatus(String buyerId, Order.OrderStatus status);
     List<Order> findByShopIdAndStatus(String shopId, Order.OrderStatus status);
+    java.util.Optional<Order> findByGhnTrackingCode(String ghnTrackingCode);
 }

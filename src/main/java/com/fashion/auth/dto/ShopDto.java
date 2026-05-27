@@ -14,6 +14,8 @@ public class ShopDto {
     private String address;
     private String description;
     private boolean isVerified;
+    private String ghnToken;
+    private Integer ghnShopId;
     private LocalDateTime createdAt;
 
     public static ShopDto from(Shop s) {
@@ -25,6 +27,8 @@ public class ShopDto {
         dto.setAddress(s.getAddress());
         dto.setDescription(s.getDescription());
         dto.setVerified(s.isVerified());
+        dto.setGhnToken(s.getGhnToken());
+        dto.setGhnShopId(s.getGhnShopId());
         dto.setCreatedAt(s.getCreatedAt());
         return dto;
     }

@@ -47,8 +47,18 @@ public class Order {
     @Column(name = "shipping_address", columnDefinition = "TEXT")
     private String shippingAddress;
 
+    @Column(name = "to_district_id")
+    private Integer toDistrictId;
+
+    @Column(name = "to_ward_code", length = 50)
+    private String toWardCode;
+
+    @Column(name = "ghn_tracking_code", length = 50)
+    private String ghnTrackingCode;
+
     @Column(columnDefinition = "TEXT")
     private String note;
+
 
     @Column(length = 20)
     @Builder.Default

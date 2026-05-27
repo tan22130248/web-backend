@@ -91,6 +91,8 @@ public class ShopController {
             if (shopData.getAvatarUrl() != null) shop.setAvatarUrl(shopData.getAvatarUrl());
             if (shopData.getAddress() != null) shop.setAddress(shopData.getAddress());
             if (shopData.getDescription() != null) shop.setDescription(shopData.getDescription());
+            if (shopData.getGhnToken() != null) shop.setGhnToken(shopData.getGhnToken());
+            if (shopData.getGhnShopId() != null) shop.setGhnShopId(shopData.getGhnShopId());
 
             return ResponseEntity.ok(ShopDto.from(shopRepository.save(shop)));
         } catch (Exception e) {

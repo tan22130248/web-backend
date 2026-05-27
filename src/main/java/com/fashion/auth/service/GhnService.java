@@ -3,14 +3,20 @@ package com.fashion.auth.service;
 import com.fashion.auth.dto.ghn.GhnBaseResponse;
 import com.fashion.auth.dto.ghn.GhnFeeRequest;
 import com.fashion.auth.dto.ghn.GhnFeeResponse;
-import com.fashion.auth.dto.ghn.GhnShopConfig;
+import com.fashion.auth.dto.ghn.GhnCreateOrderRequest;
+import com.fashion.auth.dto.ghn.GhnCreateOrderResponse;
 import com.fashion.auth.exception.GhnIntegrationException;
+import com.fashion.auth.model.Shop;
+import com.fashion.auth.repository.ShopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import java.net.URI;
 
 @Slf4j
 @Service
@@ -18,24 +24,35 @@ import org.springframework.web.client.RestClient;
 public class GhnService {
 
     private final RestClient ghnRestClient;
-    private final GhnShopConfigStore ghnShopConfigStore;
+    private final ShopRepository shopRepository;
+
+    @Value("${app.ghn.api-token:}")
+    private String globalGhnToken;
+
+    @Value("${app.ghn.api-url:https://dev-online-gateway.ghn.vn/shiip/public-api/v2/}")
+    private String ghnApiUrl;
+
+    private String getMasterDataUrl(String path) {
+        return ghnApiUrl.replace("/v2/", "") + path;
+    }
 
     /**
      * Tính phí vận chuyển (Shipping Fee) thông qua GHN
      */
     public GhnFeeResponse calculateFee(String internalShopId, GhnFeeRequest request) {
-        GhnShopConfig config = ghnShopConfigStore.getConfig(internalShopId)
-                .orElseThrow(() -> new GhnIntegrationException("Shop " + internalShopId + " is not configured for GHN"));
+        Shop shop = shopRepository.findById(internalShopId)
+                .orElseThrow(() -> new GhnIntegrationException("Shop " + internalShopId + " not found"));
+
+        if (shop.getGhnToken() == null || shop.getGhnShopId() == null) {
+            throw new GhnIntegrationException("Shop " + internalShopId + " is not configured for GHN");
+        }
 
         log.info("Calculating GHN shipping fee for shop: {}", internalShopId);
 
-        // GHN requires shop_id in header for fee calculation sometimes, or in body. 
-        // According to GHN docs, token is in 'Token' header, ShopId is in 'ShopId' header
-        
         GhnBaseResponse<GhnFeeResponse> response = ghnRestClient.post()
                 .uri("/shipping-order/fee")
-                .header("Token", config.getGhnToken())
-                .header("ShopId", String.valueOf(config.getGhnShopId()))
+                .header("Token", shop.getGhnToken())
+                .header("ShopId", String.valueOf(shop.getGhnShopId()))
                 .body(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
@@ -51,5 +68,94 @@ public class GhnService {
         }
 
         return response.getData();
+    }
+
+    /**
+     * Tạo đơn giao hàng (Create Shipping Order) thông qua GHN
+     */
+    public GhnCreateOrderResponse createOrder(String internalShopId, GhnCreateOrderRequest request) {
+        Shop shop = shopRepository.findById(internalShopId)
+                .orElseThrow(() -> new GhnIntegrationException("Shop " + internalShopId + " not found"));
+
+        if (shop.getGhnToken() == null || shop.getGhnShopId() == null) {
+            throw new GhnIntegrationException("Shop " + internalShopId + " is not configured for GHN");
+        }
+
+        log.info("Creating GHN shipping order for shop: {}", internalShopId);
+
+        GhnBaseResponse<GhnCreateOrderResponse> response = ghnRestClient.post()
+                .uri("/shipping-order/create")
+                .header("Token", shop.getGhnToken())
+                .header("ShopId", String.valueOf(shop.getGhnShopId()))
+                .body(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    log.error("GHN API Error during create order. Status: {}", res.getStatusCode());
+                    throw new GhnIntegrationException("GHN API Error: " + res.getStatusCode());
+                })
+                .body(new ParameterizedTypeReference<>() {});
+
+        if (response == null || response.getCode() != 200) {
+            String msg = response != null ? response.getMessage() : "Unknown error";
+            log.error("GHN API create order failed: {}", msg);
+            throw new GhnIntegrationException("Failed to create GHN order: " + msg);
+        }
+
+        return response.getData();
+    }
+
+    /**
+     * Lấy danh sách Tỉnh/Thành phố
+     */
+    public Object getProvinces() {
+        if (globalGhnToken == null || globalGhnToken.isBlank()) {
+            throw new GhnIntegrationException("GHN Global Token is not configured (GHN_API_TOKEN)");
+        }
+        String url = getMasterDataUrl("/master-data/province");
+        log.info("Requesting GHN Provinces from URL: {}", url);
+        return ghnRestClient.get()
+                .uri(URI.create(url))
+                .header("Token", globalGhnToken)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new GhnIntegrationException("GHN API Error: " + res.getStatusCode());
+                })
+                .body(Object.class);
+    }
+
+    /**
+     * Lấy danh sách Quận/Huyện
+     */
+    public Object getDistricts(Integer provinceId) {
+        if (globalGhnToken == null || globalGhnToken.isBlank()) {
+            throw new GhnIntegrationException("GHN Global Token is not configured (GHN_API_TOKEN)");
+        }
+        String url = getMasterDataUrl("/master-data/district") + "?province_id=" + provinceId;
+        return ghnRestClient.get()
+                .uri(URI.create(url))
+                .header("Token", globalGhnToken)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new GhnIntegrationException("GHN API Error: " + res.getStatusCode());
+                })
+                .body(Object.class);
+    }
+
+    /**
+     * Lấy danh sách Phường/Xã
+     */
+    public Object getWards(Integer districtId) {
+        if (globalGhnToken == null || globalGhnToken.isBlank()) {
+            throw new GhnIntegrationException("GHN Global Token is not configured (GHN_API_TOKEN)");
+        }
+        String url = getMasterDataUrl("/master-data/ward") + "?district_id=" + districtId;
+        return ghnRestClient.get()
+                .uri(URI.create(url))
+                .header("Token", globalGhnToken)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new GhnIntegrationException("GHN API Error: " + res.getStatusCode());
+                })
+                .body(Object.class);
     }
 }

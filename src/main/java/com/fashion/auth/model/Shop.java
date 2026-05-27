@@ -58,6 +58,12 @@ public class Shop {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    @Column(name = "ghn_token", length = 255)
+    private String ghnToken;
+
+    @Column(name = "ghn_shop_id")
+    private Integer ghnShopId;
+
     @PreUpdate
     public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
 }

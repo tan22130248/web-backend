@@ -32,20 +32,20 @@ public class OrderController {
     }
 
     /**
-     * POST /api/orders
-     * Body: { shippingAddress, note?, items: [{productId, variantId?, quantity}] }
+     * POST /api/orders/calculate-fee
+     * Body: { toDistrictId, toWardCode, items: [{productId, variantId?, quantity}] }
      */
-    @PostMapping
-    public ResponseEntity<?> placeOrder(
+    @PostMapping("/calculate-fee")
+    public ResponseEntity<?> calculateFee(
             @RequestHeader("Authorization") String token,
             @RequestBody Map<String, Object> body) {
         try {
             String userId = getUserId(token);
-            String shippingAddress = (String) body.get("shippingAddress");
-            String note = (String) body.get("note");
+            Integer toDistrictId = (Integer) body.get("toDistrictId");
+            String toWardCode = (String) body.get("toWardCode");
 
-            if (shippingAddress == null || shippingAddress.isBlank()) {
-                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập địa chỉ giao hàng"));
+            if (toDistrictId == null || toWardCode == null || toWardCode.isBlank()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập districtId và wardCode"));
             }
 
             @SuppressWarnings("unchecked")
@@ -62,7 +62,50 @@ public class OrderController {
                     ))
                     .toList();
 
-            List<OrderDto> result = orderService.placeOrder(userId, shippingAddress, note, items)
+            java.math.BigDecimal totalFee = orderService.calculateTotalFee(toDistrictId, toWardCode, items);
+            return ResponseEntity.ok(Map.of("totalFee", totalFee));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/orders
+     * Body: { shippingAddress, toDistrictId, toWardCode, note?, items: [{productId, variantId?, quantity}] }
+     */
+    @PostMapping
+    public ResponseEntity<?> placeOrder(
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, Object> body) {
+        try {
+            String userId = getUserId(token);
+            String shippingAddress = (String) body.get("shippingAddress");
+            Integer toDistrictId = (Integer) body.get("toDistrictId");
+            String toWardCode = (String) body.get("toWardCode");
+            String note = (String) body.get("note");
+
+            if (shippingAddress == null || shippingAddress.isBlank()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập địa chỉ giao hàng"));
+            }
+            if (toDistrictId == null || toWardCode == null || toWardCode.isBlank()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập districtId và wardCode"));
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rawItems = (List<Map<String, Object>>) body.get("items");
+            if (rawItems == null || rawItems.isEmpty()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Danh sách sản phẩm không được trống"));
+            }
+
+            List<OrderService.OrderItemRequest> items = rawItems.stream()
+                    .map(m -> new OrderService.OrderItemRequest(
+                            (String) m.get("productId"),
+                            (String) m.get("variantId"),
+                            m.containsKey("quantity") ? ((Number) m.get("quantity")).intValue() : 1
+                    ))
+                    .toList();
+
+            List<OrderDto> result = orderService.placeOrder(userId, shippingAddress, toDistrictId, toWardCode, note, items)
                     .stream().map(OrderDto::from).toList();
             return ResponseEntity.ok(result);
         } catch (Exception e) {

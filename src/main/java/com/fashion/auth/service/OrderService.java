@@ -34,6 +34,11 @@ public class OrderService {
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
 
+    public record OrderItemRequest(String productId, String variantId, int quantity) {
+    }
+
+    private final GhnService ghnService;
+
     public OrderService(OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             OrderStatusHistoryRepository statusHistoryRepository,
@@ -43,7 +48,8 @@ public class OrderService {
             PaymentRepository paymentRepository,
             ShopRepository shopRepository,
             UserRepository userRepository,
-            NotificationRepository notificationRepository) {
+            NotificationRepository notificationRepository,
+            GhnService ghnService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.statusHistoryRepository = statusHistoryRepository;
@@ -54,12 +60,49 @@ public class OrderService {
         this.shopRepository = shopRepository;
         this.userRepository = userRepository;
         this.notificationRepository = notificationRepository;
+        this.ghnService = ghnService;
     }
 
-    /**
-     * DTO đơn giản cho mỗi item trong request đặt hàng.
-     */
-    public record OrderItemRequest(String productId, String variantId, int quantity) {
+    public BigDecimal calculateTotalFee(Integer toDistrictId, String toWardCode, List<OrderItemRequest> items) {
+        if (items == null || items.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        List<String> productIds = items.stream().map(OrderItemRequest::productId).distinct().toList();
+        Map<String, Product> productMap = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
+        Map<String, List<OrderItemRequest>> groupedByShop = items.stream()
+                .collect(Collectors.groupingBy(item -> productMap.get(item.productId()).getShop().getId()));
+
+        BigDecimal totalFee = BigDecimal.ZERO;
+
+        for (var entry : groupedByShop.entrySet()) {
+            String shopId = entry.getKey();
+            List<OrderItemRequest> shopItems = entry.getValue();
+
+            int totalQuantity = shopItems.stream().mapToInt(OrderItemRequest::quantity).sum();
+            int weight = totalQuantity * 200; // Hardcode khối lượng mặc định 200g/sp
+
+            com.fashion.auth.dto.ghn.GhnFeeRequest feeRequest = com.fashion.auth.dto.ghn.GhnFeeRequest.builder()
+                    .toDistrictId(toDistrictId)
+                    .toWardCode(toWardCode)
+                    .weight(weight)
+                    .insuranceValue(0)
+                    .serviceTypeId(2) // Giao hàng chuẩn
+                    .build();
+
+            try {
+                com.fashion.auth.dto.ghn.GhnFeeResponse feeRes = ghnService.calculateFee(shopId, feeRequest);
+                if (feeRes != null && feeRes.getTotal() != null) {
+                    totalFee = totalFee.add(BigDecimal.valueOf(feeRes.getTotal()));
+                }
+            } catch (Exception e) {
+                log.warn("Failed to calculate fee for shop: {}", shopId, e);
+                // Ignore or fallback to 0 fee if one shop fails
+            }
+        }
+        return totalFee;
     }
 
     /**
@@ -67,7 +110,7 @@ public class OrderService {
      * Tạo 1 order cho mỗi shop (nếu items thuộc nhiều shop khác nhau).
      */
     @Transactional
-    public List<Order> placeOrder(String buyerId, String shippingAddress, String note,
+    public List<Order> placeOrder(String buyerId, String shippingAddress, Integer toDistrictId, String toWardCode, String note,
             List<OrderItemRequest> items) {
         User buyer = userRepository.findById(buyerId)
                 .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
@@ -114,16 +157,38 @@ public class OrderService {
 
             BigDecimal totalAmount = BigDecimal.ZERO;
 
+            int totalQuantity = shopItems.stream().mapToInt(OrderItemRequest::quantity).sum();
+            int weight = totalQuantity * 200; // Hardcode khối lượng mặc định 200g/sp
+
+            BigDecimal shippingFee = BigDecimal.ZERO;
+            com.fashion.auth.dto.ghn.GhnFeeRequest feeRequest = com.fashion.auth.dto.ghn.GhnFeeRequest.builder()
+                    .toDistrictId(toDistrictId)
+                    .toWardCode(toWardCode)
+                    .weight(weight)
+                    .insuranceValue(0)
+                    .serviceTypeId(2)
+                    .build();
+            try {
+                com.fashion.auth.dto.ghn.GhnFeeResponse feeRes = ghnService.calculateFee(shopId, feeRequest);
+                if (feeRes != null && feeRes.getTotal() != null) {
+                    shippingFee = BigDecimal.valueOf(feeRes.getTotal());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to calculate fee during placeOrder for shop: {}", shopId, e);
+            }
+
             Order order = Order.builder()
                     .buyer(buyer)
                     .shop(shop)
                     .orderCode("ORD-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                     .status(Order.OrderStatus.pending)
                     .shippingAddress(shippingAddress)
+                    .toDistrictId(toDistrictId)
+                    .toWardCode(toWardCode)
                     .note(note)
                     .subtotal(BigDecimal.ZERO)
                     .totalAmount(BigDecimal.ZERO)
-                    .shippingFee(BigDecimal.ZERO)
+                    .shippingFee(shippingFee)
                     .type("cod")
                     .build();
 
@@ -187,14 +252,14 @@ public class OrderService {
             }
 
             order.setSubtotal(totalAmount);
-            order.setTotalAmount(totalAmount);
+            order.setTotalAmount(totalAmount.add(order.getShippingFee()));
             orderRepository.save(order);
 
             // Tạo payment record (COD)
             Payment payment = Payment.builder()
                     .order(order)
                     .method("cod")
-                    .amount(totalAmount)
+                    .amount(order.getTotalAmount())
                     .status(Payment.PaymentStatus.pending)
                     .build();
             paymentRepository.save(payment);
@@ -234,6 +299,49 @@ public class OrderService {
     public Order shipOrder(String sellerId, String orderId) {
         Order order = getOrderForSeller(sellerId, orderId);
         validateStatusTransition(order, Order.OrderStatus.shipping);
+
+        try {
+            List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);
+            
+            List<com.fashion.auth.dto.ghn.GhnCreateOrderRequest.Item> ghnItems = orderItems.stream().map(oi -> 
+                com.fashion.auth.dto.ghn.GhnCreateOrderRequest.Item.builder()
+                    .name(oi.getProduct().getName())
+                    .code(oi.getProduct().getId())
+                    .quantity(oi.getQuantity())
+                    .price(oi.getUnitPrice().intValue())
+                    .weight(200) // Hardcoded 200g
+                    .build()
+            ).toList();
+
+            int totalWeight = ghnItems.stream().mapToInt(i -> i.getWeight() * i.getQuantity()).sum();
+            int codAmount = "cod".equals(order.getType()) ? order.getTotalAmount().intValue() : 0;
+
+            com.fashion.auth.dto.ghn.GhnCreateOrderRequest ghnRequest = com.fashion.auth.dto.ghn.GhnCreateOrderRequest.builder()
+                .paymentTypeId(1) // 1: Shop trả cước
+                .note(order.getNote() != null ? order.getNote() : "")
+                .requiredNote("CHOXEMHANGKHONGTHU")
+                .clientOrderCode(order.getOrderCode())
+                .toName(order.getBuyer().getFullName() != null ? order.getBuyer().getFullName() : "Customer")
+                .toPhone(order.getBuyer().getPhone() != null ? order.getBuyer().getPhone() : "0909090909")
+                .toAddress(order.getShippingAddress())
+                .toWardCode(order.getToWardCode())
+                .toDistrictId(order.getToDistrictId())
+                .codAmount(codAmount)
+                .content("Order " + order.getOrderCode())
+                .weight(totalWeight)
+                .insuranceValue(order.getSubtotal().intValue())
+                .serviceTypeId(2)
+                .items(ghnItems)
+                .build();
+
+            com.fashion.auth.dto.ghn.GhnCreateOrderResponse ghnResponse = ghnService.createOrder(order.getShop().getId(), ghnRequest);
+            if (ghnResponse != null && ghnResponse.getOrderCode() != null) {
+                order.setGhnTrackingCode(ghnResponse.getOrderCode());
+            }
+        } catch (Exception e) {
+            log.error("Failed to create GHN order for shop {}", order.getShop().getId(), e);
+            throw new RuntimeException("Lỗi khi tạo vận đơn GHN: " + e.getMessage());
+        }
 
         order.setStatus(Order.OrderStatus.shipping);
         orderRepository.save(order);
