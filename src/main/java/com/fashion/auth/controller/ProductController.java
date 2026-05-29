@@ -3,6 +3,7 @@ package com.fashion.auth.controller;
 import com.fashion.auth.dto.AuthDto.MessageResponse;
 import com.fashion.auth.dto.ProductBatchDto;
 import com.fashion.auth.dto.ProductDto;
+import com.fashion.auth.dto.category.ProductFilterDto;
 import com.fashion.auth.model.Product;
 import com.fashion.auth.model.ProductVariant;
 import com.fashion.auth.repository.ProductVariantRepository;
@@ -156,5 +157,19 @@ public class ProductController {
             throw new RuntimeException("Token không hợp lệ");
         }
         return email;
+    }
+
+    @GetMapping("/conditions")
+    public ResponseEntity<List<String>> getProductConditions() {
+        return ResponseEntity.ok(productService.getUniqueConditionStatuses());
+    }
+
+    /**
+     * Endpoint lọc sản phẩm nâng cao
+     * GET /api/products/filter?categoryId=...&conditionStatus=...&minPrice=...&maxPrice=...&page=0&size=9
+     */
+    @GetMapping("/filter")
+    public ResponseEntity<Page<ProductDto>> filterProducts(ProductFilterDto filterRequest) {
+        return ResponseEntity.ok(productService.getFilteredProducts(filterRequest).map(ProductDto::from));
     }
 }

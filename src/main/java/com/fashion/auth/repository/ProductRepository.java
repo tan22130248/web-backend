@@ -9,9 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-
-public interface ProductRepository extends JpaRepository<Product, String>, JpaSpecificationExecutor<Product> {
+public interface ProductRepository extends JpaRepository<Product, String> {
     List<Product> findByShopId(String shopId);
     Page<Product> findByIsActiveTrue(Pageable pageable);
     Page<Product> findByCategoryIdAndIsActiveTrue(String categoryId, Pageable pageable);
