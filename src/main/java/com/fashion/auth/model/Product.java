@@ -1,5 +1,6 @@
 package com.fashion.auth.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
@@ -12,6 +13,7 @@ import java.util.List;
 @Table(name = "products")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 @Builder
+@ToString
 public class Product {
 
     @Id
