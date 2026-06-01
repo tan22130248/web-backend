@@ -12,14 +12,13 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final OtpService  otpService;
+    private final OtpService otpService;
 
     public AuthController(AuthService authService, OtpService otpService) {
         this.authService = authService;
-        this.otpService  = otpService;
+        this.otpService = otpService;
     }
 
-    /** POST /api/auth/login */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
         try {
@@ -30,7 +29,7 @@ public class AuthController {
         }
     }
 
-    /** POST /api/auth/register */
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
         try {
@@ -41,7 +40,6 @@ public class AuthController {
         }
     }
 
-    /** POST /api/auth/send-otp  { "email": "..." } */
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@Valid @RequestBody SendOtpRequest req) {
         try {
@@ -53,11 +51,32 @@ public class AuthController {
         }
     }
 
-    /** POST /api/auth/verify-otp  { "email": "...", "otp": "..." } */
+
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@Valid @RequestBody VerifyOtpRequest req) {
         boolean valid = otpService.isOtpValid(req.getEmail(), req.getOtp());
         if (valid) return ResponseEntity.ok(new MessageResponse("OTP hợp lệ"));
         return ResponseEntity.badRequest().body(new MessageResponse("OTP không hợp lệ hoặc đã hết hạn"));
+    }
+
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        try {
+            ForgotPasswordResponse resp = authService.forgotPassword(req);
+            return ResponseEntity.ok(resp);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        try {
+            MessageResponse resp = authService.resetPassword(req);
+            return ResponseEntity.ok(resp);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
     }
 }
