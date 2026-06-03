@@ -64,6 +64,14 @@ public class Order {
     @Builder.Default
     private String type = "cod";
 
+    @Column(name = "payment_method", length = 50)
+    @Builder.Default
+    private String paymentMethod = "cod";
+
+    @Column(name = "payment_status", length = 50)
+    @Builder.Default
+    private String paymentStatus = "unpaid";
+
     @Column(name = "created_at", updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

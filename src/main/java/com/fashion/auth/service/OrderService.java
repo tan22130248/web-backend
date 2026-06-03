@@ -321,8 +321,8 @@ public class OrderService {
                 .note(order.getNote() != null ? order.getNote() : "")
                 .requiredNote("CHOXEMHANGKHONGTHU")
                 .clientOrderCode(order.getOrderCode())
-                .toName(order.getBuyer().getFullName() != null ? order.getBuyer().getFullName() : "Customer")
-                .toPhone(order.getBuyer().getPhone() != null ? order.getBuyer().getPhone() : "0909090909")
+                .toName(order.getBuyer().getFullName() != null && !order.getBuyer().getFullName().isBlank() ? order.getBuyer().getFullName() : "Customer")
+                .toPhone(order.getBuyer().getPhone() != null && !order.getBuyer().getPhone().isBlank() ? order.getBuyer().getPhone() : "0909090909")
                 .toAddress(order.getShippingAddress())
                 .toWardCode(order.getToWardCode())
                 .toDistrictId(order.getToDistrictId())
@@ -476,6 +476,48 @@ public class OrderService {
         Shop shop = shopRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("Bạn chưa có cửa hàng"));
         return orderRepository.findByShopIdOrderByCreatedAtDesc(shop.getId(), pageable);
+    }
+
+    public Page<Order> getShopOrdersFiltered(String userId, String status, String fromDate, String toDate, String paymentMethod, String paymentStatus, String search, Pageable pageable) {
+        Shop shop = shopRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Bạn chưa có cửa hàng"));
+
+        org.springframework.data.jpa.domain.Specification<Order> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            predicates.add(cb.equal(root.get("shop").get("id"), shop.getId()));
+
+            if (status != null && !status.isBlank()) {
+                try {
+                    Order.OrderStatus os = Order.OrderStatus.valueOf(status.toLowerCase());
+                    predicates.add(cb.equal(root.get("status"), os));
+                } catch (IllegalArgumentException e) {
+                    // ignore invalid status
+                }
+            }
+            if (paymentMethod != null && !paymentMethod.isBlank()) {
+                predicates.add(cb.equal(root.get("paymentMethod"), paymentMethod));
+            }
+            if (paymentStatus != null && !paymentStatus.isBlank()) {
+                predicates.add(cb.equal(root.get("paymentStatus"), paymentStatus));
+            }
+            if (fromDate != null && !fromDate.isBlank()) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), java.time.LocalDateTime.parse(fromDate + "T00:00:00")));
+            }
+            if (toDate != null && !toDate.isBlank()) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), java.time.LocalDateTime.parse(toDate + "T23:59:59")));
+            }
+            if (search != null && !search.isBlank()) {
+                String keyword = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("orderCode")), keyword),
+                        cb.like(cb.lower(root.get("buyer").get("fullName")), keyword),
+                        cb.like(cb.lower(root.get("shippingAddress")), keyword)
+                ));
+            }
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        return orderRepository.findAll(spec, pageable);
     }
 
     public Order getOrderDetail(String userId, String orderId) {

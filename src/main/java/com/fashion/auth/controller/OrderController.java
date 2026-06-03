@@ -118,6 +118,12 @@ public class OrderController {
     public ResponseEntity<?> getOrders(
             @RequestHeader("Authorization") String token,
             @RequestParam(defaultValue = "buyer") String role,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) String paymentStatus,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
@@ -125,7 +131,7 @@ public class OrderController {
             Pageable pageable = PageRequest.of(page, size);
 
             Page<Order> orders = "seller".equals(role)
-                    ? orderService.getShopOrders(userId, pageable)
+                    ? orderService.getShopOrdersFiltered(userId, status, fromDate, toDate, paymentMethod, paymentStatus, search, pageable)
                     : orderService.getBuyerOrders(userId, pageable);
 
             Page<OrderDto> result = orders.map(OrderDto::from);

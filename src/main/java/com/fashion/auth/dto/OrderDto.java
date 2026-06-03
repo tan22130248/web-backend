@@ -18,6 +18,8 @@ public class OrderDto {
     private String shippingAddress;
     private String note;
     private String type;
+    private String paymentMethod;
+    private String paymentStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -44,6 +46,8 @@ public class OrderDto {
         dto.setShippingAddress(o.getShippingAddress());
         dto.setNote(o.getNote());
         dto.setType(o.getType());
+        dto.setPaymentMethod(o.getPaymentMethod());
+        dto.setPaymentStatus(o.getPaymentStatus());
         dto.setCreatedAt(o.getCreatedAt());
         dto.setUpdatedAt(o.getUpdatedAt());
 

@@ -11,6 +11,7 @@ public class ShopDto {
     private String userId;
     private String shopName;
     private String avatarUrl;
+    private String coverUrl;
     private String address;
     private String description;
     private boolean isVerified;
@@ -24,6 +25,7 @@ public class ShopDto {
         dto.setUserId(s.getUser().getId());
         dto.setShopName(s.getShopName());
         dto.setAvatarUrl(s.getAvatarUrl());
+        dto.setCoverUrl(s.getCoverUrl());
         dto.setAddress(s.getAddress());
         dto.setDescription(s.getDescription());
         dto.setVerified(s.isVerified());

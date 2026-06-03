@@ -90,8 +90,9 @@ public class GhnService {
                 .body(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
-                    log.error("GHN API Error during create order. Status: {}", res.getStatusCode());
-                    throw new GhnIntegrationException("GHN API Error: " + res.getStatusCode());
+                    String bodyStr = new String(res.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    log.error("GHN API Error during create order. Status: {}. Body: {}", res.getStatusCode(), bodyStr);
+                    throw new GhnIntegrationException("GHN API Error: " + res.getStatusCode() + " - " + bodyStr);
                 })
                 .body(new ParameterizedTypeReference<>() {});
 

@@ -28,6 +28,9 @@ public class Shop {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Column(name = "cover_url", length = 500)
+    private String coverUrl;
+
     @Column(length = 500)
     private String address;
 
