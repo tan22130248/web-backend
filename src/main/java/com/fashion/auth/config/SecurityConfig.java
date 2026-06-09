@@ -82,6 +82,9 @@ package com.fashion.auth.config;
 
 import com.fashion.auth.security.JwtAuthFilter;
 import com.fashion.auth.security.OAuth2SuccessHandler;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -141,7 +144,17 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // OAuth2 requires session for state parameter – only stateless for API routes
         SimpleUrlAuthenticationFailureHandler failureHandler =
-                new SimpleUrlAuthenticationFailureHandler(frontendUrl + "/oauth2/redirect?error=oauth2_failed");
+                new SimpleUrlAuthenticationFailureHandler(frontendUrl + "/oauth2/redirect?error=oauth2_failed") {
+                    private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SecurityConfig.class);
+
+                    @Override
+                    public void onAuthenticationFailure(HttpServletRequest request,
+                                                        HttpServletResponse response,
+                                                        org.springframework.security.core.AuthenticationException exception) throws java.io.IOException, jakarta.servlet.ServletException {
+                        logger.warn("OAuth2 authentication failure: {}", exception.getMessage(), exception);
+                        super.onAuthenticationFailure(request, response, exception);
+                    }
+                };
 
         http
                 .cors(c -> c.configurationSource(corsConfigurationSource()))
