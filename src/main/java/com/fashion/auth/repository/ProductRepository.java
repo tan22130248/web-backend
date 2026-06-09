@@ -10,7 +10,10 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 
-public interface ProductRepository extends JpaRepository<Product, String> {
+public interface ProductRepository extends JpaRepository<Product, String>, JpaSpecificationExecutor<Product> {
+    @Query("SELECT DISTINCT p.conditionStatus FROM Product p")
+    List<String> getUniqueConditionStatuses();
+
     List<Product> findByShopId(String shopId);
 
     Page<Product> findByIsActiveTrue(Pageable pageable);

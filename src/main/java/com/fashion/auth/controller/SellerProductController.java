@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/seller/products")
+@RequestMapping("/api/v2/seller/products")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class SellerProductController {
 

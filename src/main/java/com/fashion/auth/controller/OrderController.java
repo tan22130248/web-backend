@@ -37,10 +37,8 @@ public class OrderController {
      */
     @PostMapping("/calculate-fee")
     public ResponseEntity<?> calculateFee(
-            @RequestHeader("Authorization") String token,
             @RequestBody Map<String, Object> body) {
         try {
-            String userId = getUserId(token);
             Integer toDistrictId = (Integer) body.get("toDistrictId");
             String toWardCode = (String) body.get("toWardCode");
 
