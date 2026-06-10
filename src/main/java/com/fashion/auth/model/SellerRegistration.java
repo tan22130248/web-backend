@@ -1,18 +1,16 @@
 package com.fashion.auth.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "shops")
+@Table(name = "seller_registrations")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 @Builder
-public class Shop {
+public class SellerRegistration {
 
     @Id
     @UuidGenerator
@@ -23,13 +21,16 @@ public class Shop {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "shop_name", nullable = false, length = 150)
-    private String shopName;
+    @Column(name = "full_name", nullable = false, length = 150)
+    private String fullName;
 
-    @Column(name = "avatar_url", length = 500)
-    private String avatarUrl;
+    @Column(name = "phone", length = 20)
+    private String phone;
 
-    @Column(length = 500)
+    @Column(name = "email", nullable = false, length = 255)
+    private String email;
+
+    @Column(name = "address", columnDefinition = "TEXT")
     private String address;
 
     @Column(name = "cccd_front_url", length = 500)
@@ -38,24 +39,13 @@ public class Shop {
     @Column(name = "cccd_back_url", length = 500)
     private String cccdBackUrl;
 
-    @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
-
-    @Column(name = "is_verified", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     @Builder.Default
-    private boolean isVerified = false;
+    private RegistrationStatus status = RegistrationStatus.pending;
 
-    @Column(name = "total_points", nullable = false)
-    @Builder.Default
-    private int totalPoints = 0;
-
-    @Column(name = "total_sold", nullable = false)
-    @Builder.Default
-    private int totalSold = 0;
-
-    @Column(name = "avg_rating", nullable = false, precision = 2, scale = 1)
-    @Builder.Default
-    private BigDecimal avgRating = BigDecimal.ZERO;
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
 
     @Column(name = "created_at", updatable = false)
     @Builder.Default
@@ -67,4 +57,10 @@ public class Shop {
 
     @PreUpdate
     public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
+
+    public enum RegistrationStatus {
+        pending,
+        approved,
+        rejected
+    }
 }
