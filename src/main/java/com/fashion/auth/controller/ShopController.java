@@ -1,14 +1,25 @@
 package com.fashion.auth.controller;
 
 import com.fashion.auth.dto.AuthDto.MessageResponse;
+import com.fashion.auth.dto.FeaturedShopDTO;
+import com.fashion.auth.dto.NewlyVerifiedShopDTO;
 import com.fashion.auth.dto.ShopDto;
+import com.fashion.auth.dto.WeeklyShopDTO;
 import com.fashion.auth.model.Shop;
 import com.fashion.auth.model.User;
 import com.fashion.auth.repository.ShopRepository;
 import com.fashion.auth.repository.UserRepository;
 import com.fashion.auth.security.JwtUtils;
+import com.fashion.auth.service.ShopService;
+import com.fashion.auth.service.ShopRankingService;
+import com.fashion.auth.service.ShopRankingPopulationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/shops")
@@ -18,11 +29,18 @@ public class ShopController {
     private final ShopRepository shopRepository;
     private final JwtUtils jwtUtils;
     private final UserRepository userRepository;
+    private final ShopService shopService;
+    private final ShopRankingService rankingService;
+    private final ShopRankingPopulationService populationService;
 
-    public ShopController(ShopRepository shopRepository, JwtUtils jwtUtils, UserRepository userRepository) {
+
+    public ShopController(ShopRepository shopRepository, JwtUtils jwtUtils, UserRepository userRepository, ShopService shopService, ShopRankingService rankingService, ShopRankingPopulationService populationService) {
         this.shopRepository = shopRepository;
         this.jwtUtils = jwtUtils;
         this.userRepository = userRepository;
+        this.shopService = shopService;
+        this.rankingService = rankingService;
+        this.populationService = populationService;
     }
 
     /** GET /api/shops/{id} */
@@ -110,5 +128,94 @@ public class ShopController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
         return user.getId();
+    }
+
+    @GetMapping("/featured")
+    public Map<String, Object> featured() {
+        List<FeaturedShopDTO> data = shopService.getFeaturedShops();
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("data", data);
+        resp.put("count", data.size());
+        return resp;
+    }
+
+    @GetMapping("/featured/week")
+    public Map<String, Object> week() {
+        WeeklyShopDTO data = shopService.getWeeklyShop();
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("data", data);
+        return resp;
+    }
+
+    @GetMapping("/newly-verified")
+    public Map<String, Object> newlyVerified() {
+        List<NewlyVerifiedShopDTO> data = shopService.getNewlyVerifiedShops();
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("data", data);
+        resp.put("count", data.size());
+        return resp;
+    }
+
+    /**
+     * DEBUG: Manually trigger ranking calculation
+     * Usage: POST /api/shops/ranking/calculate
+     */
+    @PostMapping("/ranking/calculate")
+    public ResponseEntity<?> calculateRankings() {
+        try {
+            rankingService.calculateRankingsForCurrentMonth();
+            return ResponseEntity.ok(Map.of(
+                "message", "Rankings calculated successfully",
+                "timestamp", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * DEBUG: Populate sample shop rankings from CSV data
+     * Usage: POST /api/shops/ranking/populate-sample?count=50
+     */
+    @PostMapping("/ranking/populate-sample")
+    public ResponseEntity<?> populateSampleRankings(
+            @RequestParam(defaultValue = "50") int count) {
+        try {
+            populationService.populateSampleRankings(count);
+            long totalNow = populationService.getTotalRankings();
+            return ResponseEntity.ok(Map.of(
+                "message", "Sample rankings populated successfully",
+                "count", count,
+                "totalRankingsInDB", totalNow,
+                "timestamp", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * DEBUG: Check shop ranking data
+     * Usage: GET /api/shops/ranking/debug
+     */
+    @GetMapping("/ranking/debug")
+    public ResponseEntity<?> debugRankings() {
+        try {
+            List<FeaturedShopDTO> featured = shopService.getFeaturedShops();
+            WeeklyShopDTO weekly = shopService.getWeeklyShop();
+            List<NewlyVerifiedShopDTO> newlyVerified = shopService.getNewlyVerifiedShops();
+            long totalRankings = populationService.getTotalRankings();
+            
+            return ResponseEntity.ok(Map.of(
+                "totalRankingsInDB", totalRankings,
+                "featuredShopsCount", featured.size(),
+                "featuredShops", featured,
+                "weeklyShop", weekly,
+                "newlyVerifiedCount", newlyVerified.size(),
+                "newlyVerified", newlyVerified
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "message", e.getMessage()));
+        }
     }
 }
