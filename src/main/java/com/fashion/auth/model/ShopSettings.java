@@ -16,7 +16,7 @@ public class ShopSettings {
     private String id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shop_id", nullable = false, unique = true)
+    @JoinColumn(name = "shop_id", nullable = false, unique = true, columnDefinition = "char(36)")
     private Shop shop;
 
     @Column(length = 50)

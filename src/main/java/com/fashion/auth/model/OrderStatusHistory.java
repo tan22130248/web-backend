@@ -18,7 +18,8 @@ public class OrderStatusHistory {
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_id", nullable = false,
+            columnDefinition = "char(36) character set utf8mb4 collate utf8mb4_unicode_ci")
     private Order order;
 
     @Column(name = "old_status", length = 20)
