@@ -12,4 +12,11 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     Page<Order> findByShopIdOrderByCreatedAtDesc(String shopId, Pageable pageable);
     List<Order> findByBuyerIdAndStatus(String buyerId, Order.OrderStatus status);
     List<Order> findByShopIdAndStatus(String shopId, Order.OrderStatus status);
+
+    // Admin: list all orders across the marketplace
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<Order> findByStatusOrderByCreatedAtDesc(Order.OrderStatus status, Pageable pageable);
+    long countByStatus(Order.OrderStatus status);
 }
+
+
