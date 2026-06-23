@@ -2,10 +2,12 @@ package com.fashion.auth.controller;
 
 import com.fashion.auth.dto.seller.product.ProductSaveRequestDto;
 import com.fashion.auth.dto.seller.product.ProductSellerDto;
+import com.fashion.auth.dto.seller.SellerRegistrationRequestDto;
 import com.fashion.auth.model.Product;
 import com.fashion.auth.repository.ProductVariantRepository;
 import com.fashion.auth.security.JwtUtils;
 import com.fashion.auth.service.ProductService;
+import com.fashion.auth.service.SellerService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,11 +26,13 @@ public class SellerController {
     private final ProductService productService;
     private final ProductVariantRepository productVariantRepository;
     private final JwtUtils jwtUtils;
+    private final SellerService sellerService;
 
-    public SellerController(ProductService productService, ProductVariantRepository productVariantRepository, JwtUtils jwtUtils) {
+    public SellerController(ProductService productService, ProductVariantRepository productVariantRepository, JwtUtils jwtUtils, SellerService sellerService) {
         this.productService = productService;
         this.productVariantRepository = productVariantRepository;
         this.jwtUtils = jwtUtils;
+        this.sellerService = sellerService;
     }
 
     private String extractEmail(String authHeader) {
@@ -41,6 +45,34 @@ public class SellerController {
             throw new RuntimeException("Token không hợp lệ");
         }
         return email;
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> registerAsSeller(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader,
+            @RequestBody SellerRegistrationRequestDto request) {
+
+        String email = extractEmail(authHeader);
+        sellerService.registerAsSeller(email, request);
+
+        return ResponseEntity.ok(Map.of(
+            "message", "Đăng ký người bán thành công! Chúng tôi sẽ xem xét đơn yêu cầu của bạn trong vòng 24 giờ.",
+            "status", "success"
+        ));
+    }
+
+    @GetMapping("/check-seller-status")
+    public ResponseEntity<Map<String, Object>> checkSellerStatus(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+
+        String email = extractEmail(authHeader);
+        boolean isSeller = sellerService.isUserSeller(email);
+        String registrationStatus = sellerService.getSellerRegistrationStatus(email);
+
+        return ResponseEntity.ok(Map.of(
+            "isSeller", isSeller,
+            "registrationStatus", registrationStatus
+        ));
     }
 
     @GetMapping("/products")

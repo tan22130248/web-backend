@@ -8,7 +8,7 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class GhnConfig {
 
-    @Value("${app.ghn.api-url}")
+    @Value("${app.ghn.api-url:https://dev-online-gateway.ghn.vn/shiip/public-api/v2/}")
     private String ghnApiUrl;
 
     @Bean

@@ -6,11 +6,15 @@ import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "shops")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class Shop {
 
@@ -35,12 +39,25 @@ public class Shop {
     @Column(length = 500)
     private String address;
 
+    @Column(name = "cccd_front_url", length = 500)
+    private String cccdFrontUrl;
+
+    @Column(name = "cccd_back_url", length = 500)
+    private String cccdBackUrl;
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "is_verified", nullable = false)
     @Builder.Default
     private boolean isVerified = false;
+
+    @Column(name = "verified_at")
+    private LocalDate verifiedAt;
+
+    @Column(name = "response_rate", nullable = false)
+    @Builder.Default
+    private Integer responseRate = 100; // percentage
 
     @Column(name = "total_points", nullable = false)
     @Builder.Default
@@ -50,9 +67,10 @@ public class Shop {
     @Builder.Default
     private int totalSold = 0;
 
+    // Sử dụng BigDecimal theo phiên bản 2 để đảm bảo độ chính xác của điểm đánh giá
     @Column(name = "avg_rating", nullable = false, precision = 2, scale = 1)
     @Builder.Default
-    private BigDecimal avgRating = BigDecimal.ZERO;
+    private BigDecimal avgRating = new BigDecimal("5.0");
 
     @Column(name = "created_at", updatable = false)
     @Builder.Default
@@ -69,5 +87,7 @@ public class Shop {
     private Integer ghnShopId;
 
     @PreUpdate
-    public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

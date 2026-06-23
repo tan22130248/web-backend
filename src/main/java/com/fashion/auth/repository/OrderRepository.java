@@ -18,6 +18,11 @@ public interface OrderRepository extends JpaRepository<Order, String>, JpaSpecif
     Page<Order> findByShopIdOrderByCreatedAtDesc(String shopId, Pageable pageable);
     List<Order> findByBuyerIdAndStatus(String buyerId, Order.OrderStatus status);
     List<Order> findByShopIdAndStatus(String shopId, Order.OrderStatus status);
+
+    // Admin: list all orders across the marketplace
+    Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<Order> findByStatusOrderByCreatedAtDesc(Order.OrderStatus status, Pageable pageable);
+    long countByStatus(Order.OrderStatus status);
     java.util.Optional<Order> findByGhnTrackingCode(String ghnTrackingCode);
 
     @Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.shop.id = :shopId AND o.status = 'delivered'")
@@ -43,3 +48,5 @@ public interface OrderRepository extends JpaRepository<Order, String>, JpaSpecif
                    "GROUP BY c.id, c.name", nativeQuery = true)
     List<Map<String, Object>> getCategoryRevenueData(@Param("shopId") String shopId);
 }
+
+
