@@ -84,6 +84,7 @@ public class Order {
     public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
 
     public enum OrderStatus {
+        pending_payment,  // VNPay: đã tạo, chờ thanh toán
         pending,
         confirmed,
         shipping,

@@ -111,7 +111,7 @@ public class OrderService {
      */
     @Transactional
     public List<Order> placeOrder(String buyerId, String shippingAddress, Integer toDistrictId, String toWardCode, String note,
-            List<OrderItemRequest> items) {
+            List<OrderItemRequest> items, String paymentMethod) {
         User buyer = userRepository.findById(buyerId)
                 .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
 
@@ -177,11 +177,12 @@ public class OrderService {
                 log.warn("Failed to calculate fee during placeOrder for shop: {}", shopId, e);
             }
 
+            boolean isVnPay = "vnpay".equalsIgnoreCase(paymentMethod);
             Order order = Order.builder()
                     .buyer(buyer)
                     .shop(shop)
                     .orderCode("ORD-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                    .status(Order.OrderStatus.pending)
+                    .status(isVnPay ? Order.OrderStatus.pending_payment : Order.OrderStatus.pending)
                     .shippingAddress(shippingAddress)
                     .toDistrictId(toDistrictId)
                     .toWardCode(toWardCode)
@@ -189,7 +190,9 @@ public class OrderService {
                     .subtotal(BigDecimal.ZERO)
                     .totalAmount(BigDecimal.ZERO)
                     .shippingFee(shippingFee)
-                    .type("cod")
+                    .type(isVnPay ? "online" : "cod")
+                    .paymentMethod(isVnPay ? "vnpay" : "cod")
+                    .paymentStatus("unpaid")
                     .build();
 
             order = orderRepository.save(order);
@@ -255,21 +258,25 @@ public class OrderService {
             order.setTotalAmount(totalAmount.add(order.getShippingFee()));
             orderRepository.save(order);
 
-            // Tạo payment record (COD)
+            // Tạo payment record
             Payment payment = Payment.builder()
                     .order(order)
-                    .method("cod")
+                    .method(isVnPay ? "vnpay" : "cod")
                     .amount(order.getTotalAmount())
                     .status(Payment.PaymentStatus.pending)
                     .build();
             paymentRepository.save(payment);
 
             // Ghi lịch sử trạng thái
-            saveStatusHistory(order, null, "pending", "system", "Đơn hàng được tạo");
+            String initialStatus = isVnPay ? "pending_payment" : "pending";
+            saveStatusHistory(order, null, initialStatus, "system",
+                    isVnPay ? "Đơn hàng chờ thanh toán VNPay" : "Đơn hàng được tạo");
 
-            // Thông báo cho seller
-            sendNotification(shop.getUser().getId(), "order",
-                    "Đơn hàng mới", "Bạn có đơn hàng mới cần xác nhận");
+            // Chỉ thông báo seller ngay nếu COD (VNPay thông báo sau khi IPN confirm)
+            if (!isVnPay) {
+                sendNotification(shop.getUser().getId(), "order",
+                        "Đơn hàng mới", "Bạn có đơn hàng mới cần xác nhận");
+            }
 
             orders.add(order);
             log.info("Order created: id={}, shop={}, total={}", order.getId(), shopId, totalAmount);
@@ -466,7 +473,53 @@ public class OrderService {
         return order;
     }
 
+    /**
+     * Xác nhận thanh toán VNPay từ IPN callback.
+     * Idempotent: kiểm tra paymentStatus trước khi update.
+     */
+    @Transactional
+    public void confirmVnPayPayment(String orderCode, String vnpTransactionNo, boolean isSuccess) {
+        Order order = orderRepository.findByOrderCode(orderCode)
+                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại: " + orderCode));
+
+        Payment payment = paymentRepository.findByOrderOrderCode(orderCode)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy payment cho đơn: " + orderCode));
+
+        if (isSuccess) {
+            order.setStatus(Order.OrderStatus.pending);
+            order.setPaymentStatus("paid");
+            orderRepository.save(order);
+
+            payment.setStatus(Payment.PaymentStatus.paid);
+            payment.setTransactionCode(vnpTransactionNo);
+            payment.setPaidAt(java.time.LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            saveStatusHistory(order, "pending_payment", "pending", "system",
+                    "Thanh toán VNPay thành công - Mã GD: " + vnpTransactionNo);
+
+            // Thông báo seller sau khi thanh toán thành công
+            sendNotification(order.getShop().getUser().getId(), "order",
+                    "Đơn hàng mới", "Bạn có đơn hàng mới đã thanh toán VNPay, cần xác nhận");
+
+            log.info("VNPay payment confirmed: orderCode={}, txn={}", orderCode, vnpTransactionNo);
+        } else {
+            order.setPaymentStatus("failed");
+            orderRepository.save(order);
+
+            payment.setStatus(Payment.PaymentStatus.failed);
+            paymentRepository.save(payment);
+
+            log.info("VNPay payment failed: orderCode={}, txn={}", orderCode, vnpTransactionNo);
+        }
+    }
+
     // ── Query methods ──────────────────────────────────────────────────
+
+    public Order getOrderByCode(String orderCode) {
+        return orderRepository.findByOrderCode(orderCode)
+                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại: " + orderCode));
+    }
 
     public Page<Order> getBuyerOrders(String buyerId, Pageable pageable) {
         return orderRepository.findByBuyerIdOrderByCreatedAtDesc(buyerId, pageable);

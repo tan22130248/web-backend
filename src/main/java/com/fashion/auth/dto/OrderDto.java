@@ -12,14 +12,17 @@ import java.util.List;
 @Data
 public class OrderDto {
     private String id;
+    private String orderCode;
     private String status;
     private BigDecimal totalAmount;
+    private BigDecimal subtotal;
     private BigDecimal shippingFee;
     private String shippingAddress;
     private String note;
     private String type;
     private String paymentMethod;
     private String paymentStatus;
+    private String paymentUrl;  // chỉ có giá trị khi paymentMethod=vnpay
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -40,8 +43,10 @@ public class OrderDto {
     public static OrderDto from(Order o) {
         OrderDto dto = new OrderDto();
         dto.setId(o.getId());
+        dto.setOrderCode(o.getOrderCode());
         dto.setStatus(o.getStatus().name());
         dto.setTotalAmount(o.getTotalAmount());
+        dto.setSubtotal(o.getSubtotal());
         dto.setShippingFee(o.getShippingFee());
         dto.setShippingAddress(o.getShippingAddress());
         dto.setNote(o.getNote());
