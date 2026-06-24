@@ -78,12 +78,13 @@ public class ReviewCommentService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Sản phẩm không tồn tại"));
 
-        boolean hasPurchased = orderItemRepository.existsByProductIdAndOrderBuyerIdAndOrderStatus(
+        java.util.List<com.fashion.auth.model.OrderItem> items = orderItemRepository.findByProductIdAndOrderBuyerIdAndOrderStatus(
                 productId, user.getId(), Order.OrderStatus.delivered
         );
-        if (!hasPurchased) {
+        if (items.isEmpty()) {
             throw new RuntimeException("Chỉ những khách hàng đã mua sản phẩm này mới được phép đánh giá.");
         }
+        Order order = items.get(0).getOrder();
 
         boolean hasRated = reviewRepository.existsByUserIdAndProductId(user.getId(), productId);
         if (hasRated) {
@@ -99,6 +100,7 @@ public class ReviewCommentService {
                 .buyer(user)
                 .product(product)
                 .shop(product.getShop())
+                .order(order)
                 .rating(rating)
                 .comment(comment)
                 .createdAt(LocalDateTime.now())
