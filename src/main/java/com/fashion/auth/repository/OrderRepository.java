@@ -5,18 +5,49 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-public interface OrderRepository extends JpaRepository<Order, String> {
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+
+public interface OrderRepository extends JpaRepository<Order, String>, JpaSpecificationExecutor<Order> {
     Page<Order> findByBuyerIdOrderByCreatedAtDesc(String buyerId, Pageable pageable);
     Page<Order> findByShopIdOrderByCreatedAtDesc(String shopId, Pageable pageable);
     List<Order> findByBuyerIdAndStatus(String buyerId, Order.OrderStatus status);
     List<Order> findByShopIdAndStatus(String shopId, Order.OrderStatus status);
+    java.util.Optional<Order> findByOrderCode(String orderCode);
 
     // Admin: list all orders across the marketplace
     Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Page<Order> findByStatusOrderByCreatedAtDesc(Order.OrderStatus status, Pageable pageable);
     long countByStatus(Order.OrderStatus status);
+    java.util.Optional<Order> findByGhnTrackingCode(String ghnTrackingCode);
+
+    @Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.shop.id = :shopId AND o.status = 'delivered'")
+    BigDecimal calculateTotalRevenue(@Param("shopId") String shopId);
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.shop.id = :shopId AND o.status = 'pending'")
+    long countNewOrders(@Param("shopId") String shopId);
+
+    long countByShopId(String shopId);
+    long countByShopIdAndStatus(String shopId, Order.OrderStatus status);
+
+    // native query to group revenue by date for chart (last X days or specific time range logic can be added in service)
+    @Query(value = "SELECT DATE(created_at) as label, SUM(total_amount) as value FROM orders WHERE shop_id = :shopId AND status = 'delivered' AND created_at >= :startDate GROUP BY DATE(created_at) ORDER BY DATE(created_at)", nativeQuery = true)
+    List<Map<String, Object>> getRevenueChartData(@Param("shopId") String shopId, @Param("startDate") java.time.LocalDateTime startDate);
+
+    // native query to group revenue by category
+    @Query(value = "SELECT c.name as categoryName, SUM(oi.total_price) as revenue " +
+                   "FROM order_items oi " +
+                   "JOIN orders o ON oi.order_id = o.id " +
+                   "JOIN products p ON oi.product_id = p.id " +
+                   "JOIN categories c ON p.category_id = c.id " +
+                   "WHERE o.shop_id = :shopId AND o.status = 'delivered' " +
+                   "GROUP BY c.id, c.name", nativeQuery = true)
+    List<Map<String, Object>> getCategoryRevenueData(@Param("shopId") String shopId);
 }
 
 

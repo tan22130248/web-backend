@@ -7,6 +7,8 @@ import com.fashion.auth.model.User;
 import com.fashion.auth.repository.UserRepository;
 import com.fashion.auth.security.JwtUtils;
 import com.fashion.auth.service.OrderService;
+import com.fashion.auth.service.VnPayService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,28 +26,29 @@ public class OrderController {
     private final OrderService orderService;
     private final JwtUtils jwtUtils;
     private final UserRepository userRepository;
+    private final VnPayService vnPayService;
 
-    public OrderController(OrderService orderService, JwtUtils jwtUtils, UserRepository userRepository) {
+    public OrderController(OrderService orderService, JwtUtils jwtUtils,
+                           UserRepository userRepository, VnPayService vnPayService) {
         this.orderService = orderService;
         this.jwtUtils = jwtUtils;
         this.userRepository = userRepository;
+        this.vnPayService = vnPayService;
     }
 
     /**
-     * POST /api/orders
-     * Body: { shippingAddress, note?, items: [{productId, variantId?, quantity}] }
+     * POST /api/orders/calculate-fee
+     * Body: { toDistrictId, toWardCode, items: [{productId, variantId?, quantity}] }
      */
-    @PostMapping
-    public ResponseEntity<?> placeOrder(
-            @RequestHeader("Authorization") String token,
+    @PostMapping("/calculate-fee")
+    public ResponseEntity<?> calculateFee(
             @RequestBody Map<String, Object> body) {
         try {
-            String userId = getUserId(token);
-            String shippingAddress = (String) body.get("shippingAddress");
-            String note = (String) body.get("note");
+            Integer toDistrictId = (Integer) body.get("toDistrictId");
+            String toWardCode = (String) body.get("toWardCode");
 
-            if (shippingAddress == null || shippingAddress.isBlank()) {
-                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập địa chỉ giao hàng"));
+            if (toDistrictId == null || toWardCode == null || toWardCode.isBlank()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập districtId và wardCode"));
             }
 
             @SuppressWarnings("unchecked")
@@ -62,8 +65,71 @@ public class OrderController {
                     ))
                     .toList();
 
-            List<OrderDto> result = orderService.placeOrder(userId, shippingAddress, note, items)
-                    .stream().map(OrderDto::from).toList();
+            java.math.BigDecimal totalFee = orderService.calculateTotalFee(toDistrictId, toWardCode, items);
+            return ResponseEntity.ok(Map.of("totalFee", totalFee));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/orders
+     * Body: { shippingAddress, toDistrictId, toWardCode, note?, items: [{productId, variantId?, quantity}] }
+     */
+    @PostMapping
+    public ResponseEntity<?> placeOrder(
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, Object> body,
+            HttpServletRequest request) {
+        try {
+            String userId = getUserId(token);
+            String shippingAddress = (String) body.get("shippingAddress");
+            Integer toDistrictId = (Integer) body.get("toDistrictId");
+            String toWardCode = (String) body.get("toWardCode");
+            String note = (String) body.get("note");
+            String paymentMethod = body.containsKey("paymentMethod")
+                    ? (String) body.get("paymentMethod") : "cod";
+
+            if (shippingAddress == null || shippingAddress.isBlank()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập địa chỉ giao hàng"));
+            }
+            if (toDistrictId == null || toWardCode == null || toWardCode.isBlank()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Vui lòng nhập districtId và wardCode"));
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rawItems = (List<Map<String, Object>>) body.get("items");
+            if (rawItems == null || rawItems.isEmpty()) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Danh sách sản phẩm không được trống"));
+            }
+
+            List<OrderService.OrderItemRequest> items = rawItems.stream()
+                    .map(m -> new OrderService.OrderItemRequest(
+                            (String) m.get("productId"),
+                            (String) m.get("variantId"),
+                            m.containsKey("quantity") ? ((Number) m.get("quantity")).intValue() : 1
+                    ))
+                    .toList();
+
+            // Lấy IP client để tạo URL thanh toán VNPay
+            String clientIp = getClientIp(request);
+
+            List<Order> orders = orderService.placeOrder(
+                    userId, shippingAddress, toDistrictId, toWardCode, note, items, paymentMethod);
+
+            List<OrderDto> result = orders.stream().map(order -> {
+                OrderDto dto = OrderDto.from(order);
+                if ("vnpay".equalsIgnoreCase(order.getPaymentMethod())) {
+                    String paymentUrl = vnPayService.createPaymentUrl(
+                            order.getOrderCode(),
+                            order.getTotalAmount().longValue(),
+                            "Thanh toan don hang " + order.getOrderCode(),
+                            clientIp);
+                    dto.setPaymentUrl(paymentUrl);
+                }
+                return dto;
+            }).toList();
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
@@ -75,6 +141,12 @@ public class OrderController {
     public ResponseEntity<?> getOrders(
             @RequestHeader("Authorization") String token,
             @RequestParam(defaultValue = "buyer") String role,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) String paymentStatus,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
@@ -82,7 +154,7 @@ public class OrderController {
             Pageable pageable = PageRequest.of(page, size);
 
             Page<Order> orders = "seller".equals(role)
-                    ? orderService.getShopOrders(userId, pageable)
+                    ? orderService.getShopOrdersFiltered(userId, status, fromDate, toDate, paymentMethod, paymentStatus, search, pageable)
                     : orderService.getBuyerOrders(userId, pageable);
 
             Page<OrderDto> result = orders.map(OrderDto::from);
@@ -194,5 +266,15 @@ public class OrderController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại"));
         return user.getId();
+    }
+
+    /** Lấy IP thực của client (hỗ trợ proxy/ngrok) */
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        String ip = request.getRemoteAddr();
+        return (ip != null && !ip.isBlank()) ? ip : "127.0.0.1";
     }
 }

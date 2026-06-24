@@ -54,7 +54,7 @@ public class SellerController {
 
         String email = extractEmail(authHeader);
         sellerService.registerAsSeller(email, request);
-        
+
         return ResponseEntity.ok(Map.of(
             "message", "Đăng ký người bán thành công! Chúng tôi sẽ xem xét đơn yêu cầu của bạn trong vòng 24 giờ.",
             "status", "success"
@@ -68,7 +68,7 @@ public class SellerController {
         String email = extractEmail(authHeader);
         boolean isSeller = sellerService.isUserSeller(email);
         String registrationStatus = sellerService.getSellerRegistrationStatus(email);
-        
+
         return ResponseEntity.ok(Map.of(
             "isSeller", isSeller,
             "registrationStatus", registrationStatus

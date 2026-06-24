@@ -47,12 +47,30 @@ public class Order {
     @Column(name = "shipping_address", columnDefinition = "TEXT")
     private String shippingAddress;
 
+    @Column(name = "to_district_id")
+    private Integer toDistrictId;
+
+    @Column(name = "to_ward_code", length = 50)
+    private String toWardCode;
+
+    @Column(name = "ghn_tracking_code", length = 50)
+    private String ghnTrackingCode;
+
     @Column(columnDefinition = "TEXT")
     private String note;
+
 
     @Column(length = 20)
     @Builder.Default
     private String type = "cod";
+
+    @Column(name = "payment_method", length = 50)
+    @Builder.Default
+    private String paymentMethod = "cod";
+
+    @Column(name = "payment_status", length = 50)
+    @Builder.Default
+    private String paymentStatus = "unpaid";
 
     @Column(name = "created_at", updatable = false)
     @Builder.Default
@@ -66,6 +84,7 @@ public class Order {
     public void preUpdate() { this.updatedAt = LocalDateTime.now(); }
 
     public enum OrderStatus {
+        pending_payment,  // VNPay: đã tạo, chờ thanh toán
         pending,
         confirmed,
         shipping,

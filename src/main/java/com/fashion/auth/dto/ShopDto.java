@@ -11,9 +11,12 @@ public class ShopDto {
     private String userId;
     private String shopName;
     private String avatarUrl;
+    private String coverUrl;
     private String address;
     private String description;
     private boolean isVerified;
+    private String ghnToken;
+    private Integer ghnShopId;
     private LocalDateTime createdAt;
 
     public static ShopDto from(Shop s) {
@@ -22,9 +25,12 @@ public class ShopDto {
         dto.setUserId(s.getUser().getId());
         dto.setShopName(s.getShopName());
         dto.setAvatarUrl(s.getAvatarUrl());
+        dto.setCoverUrl(s.getCoverUrl());
         dto.setAddress(s.getAddress());
         dto.setDescription(s.getDescription());
         dto.setVerified(s.isVerified());
+        dto.setGhnToken(s.getGhnToken());
+        dto.setGhnShopId(s.getGhnShopId());
         dto.setCreatedAt(s.getCreatedAt());
         return dto;
     }

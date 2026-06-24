@@ -166,12 +166,15 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/login/oauth2/**",
                                 "/oauth2/**",
-                                "/error"
+                                "/error",
+                                "/api/payments/vnpay/ipn",
+                                "/api/payments/vnpay/return"
                         ).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/products/**",
                                 "/api/categories/**",
-                                "/api/shops/**"
+                                "/api/shops/**",
+                                "/uploads/**"
                         ).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/products/batch"

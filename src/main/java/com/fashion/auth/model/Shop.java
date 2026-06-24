@@ -1,5 +1,6 @@
 package com.fashion.auth.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
@@ -31,6 +32,9 @@ public class Shop {
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
+
+    @Column(name = "cover_url", length = 500)
+    private String coverUrl;
 
     @Column(length = 500)
     private String address;
@@ -75,6 +79,12 @@ public class Shop {
     @Column(name = "updated_at")
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @Column(name = "ghn_token", length = 255)
+    private String ghnToken;
+
+    @Column(name = "ghn_shop_id")
+    private Integer ghnShopId;
 
     @PreUpdate
     public void preUpdate() {
