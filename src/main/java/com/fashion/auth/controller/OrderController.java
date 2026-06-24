@@ -157,7 +157,12 @@ public class OrderController {
                     ? orderService.getShopOrdersFiltered(userId, status, fromDate, toDate, paymentMethod, paymentStatus, search, pageable)
                     : orderService.getBuyerOrders(userId, pageable);
 
-            Page<OrderDto> result = orders.map(OrderDto::from);
+            Page<OrderDto> result = orders.map(order -> {
+                OrderDto dto = OrderDto.from(order);
+                String buyerId = order.getBuyer() != null ? order.getBuyer().getId() : null;
+                dto.setItems(orderService.getOrderItemsDto(order.getId(), buyerId));
+                return dto;
+            });
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
@@ -174,8 +179,8 @@ public class OrderController {
             Order order = orderService.getOrderDetail(userId, id);
 
             OrderDto dto = OrderDto.from(order);
-            dto.setItems(orderService.getOrderItems(id).stream()
-                    .map(OrderDto.OrderItemDto::from).toList());
+            String buyerId = order.getBuyer() != null ? order.getBuyer().getId() : null;
+            dto.setItems(orderService.getOrderItemsDto(id, buyerId));
             dto.setHistory(orderService.getOrderHistory(id).stream()
                     .map(OrderDto.OrderHistoryDto::from).toList());
 

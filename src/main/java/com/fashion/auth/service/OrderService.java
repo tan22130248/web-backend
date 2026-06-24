@@ -1,5 +1,6 @@
 package com.fashion.auth.service;
 
+import com.fashion.auth.dto.OrderDto;
 import com.fashion.auth.model.*;
 import com.fashion.auth.repository.*;
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ public class OrderService {
     private final ShopRepository shopRepository;
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
+    private final ReviewRepository reviewRepository;
 
     public record OrderItemRequest(String productId, String variantId, int quantity) {
     }
@@ -49,6 +51,7 @@ public class OrderService {
             ShopRepository shopRepository,
             UserRepository userRepository,
             NotificationRepository notificationRepository,
+            ReviewRepository reviewRepository,
             GhnService ghnService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -60,6 +63,7 @@ public class OrderService {
         this.shopRepository = shopRepository;
         this.userRepository = userRepository;
         this.notificationRepository = notificationRepository;
+        this.reviewRepository = reviewRepository;
         this.ghnService = ghnService;
     }
 
@@ -591,6 +595,18 @@ public class OrderService {
 
     public List<OrderItem> getOrderItems(String orderId) {
         return orderItemRepository.findByOrderId(orderId);
+    }
+
+    public List<OrderDto.OrderItemDto> getOrderItemsDto(String orderId, String buyerId) {
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        return items.stream().map(item -> {
+            OrderDto.OrderItemDto dto = OrderDto.OrderItemDto.from(item);
+            if (buyerId != null && item.getProduct() != null) {
+                boolean hasRated = reviewRepository.existsByUserIdAndProductId(buyerId, item.getProduct().getId());
+                dto.setReviewed(hasRated);
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     public List<OrderStatusHistory> getOrderHistory(String orderId) {

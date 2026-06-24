@@ -81,6 +81,7 @@ public class OrderDto {
         private int quantity;
         private BigDecimal unitPrice;
         private BigDecimal totalPrice;
+        private boolean reviewed;
 
         public static OrderItemDto from(OrderItem item) {
             OrderItemDto dto = new OrderItemDto();
