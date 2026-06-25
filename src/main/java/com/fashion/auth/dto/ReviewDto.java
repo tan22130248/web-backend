@@ -3,6 +3,7 @@ package com.fashion.auth.dto;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 public class ReviewDto {
@@ -16,6 +17,25 @@ public class ReviewDto {
         private int rating;
         private String comment;
         private LocalDateTime createdAt;
+        private String userId;
+        private String userName;
+        private String userAvatar;
+        private List<ReviewReplyResponse> replies;
+        private boolean canReply; // Can current user (shop owner) reply to this review
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ReviewReplyResponse {
+        private String id;
+        private String content;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+        private String shopId;
+        private String shopName;
+        private String shopAvatar;
         private String userId;
         private String userName;
         private String userAvatar;
@@ -33,6 +53,26 @@ public class ReviewDto {
         private String userId;
         private String userName;
         private String userAvatar;
+        private List<CommentReplyResponse> replies;
+        private boolean canReply; // Can current user (shop owner) reply to this comment
+        private boolean canDelete; // Can current user delete this comment
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CommentReplyResponse {
+        private String id;
+        private String content;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+        private String shopId;
+        private String shopName;
+        private String shopAvatar;
+        private String userId;
+        private String userName;
+        private String userAvatar;
     }
 
     @Data
@@ -47,6 +87,13 @@ public class ReviewDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CommentRequest {
+        private String content;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CommentReplyRequest {
         private String content;
     }
 

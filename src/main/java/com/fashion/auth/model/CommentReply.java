@@ -7,10 +7,10 @@ import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "review_replies")
+@Table(name = "comment_replies")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 @Builder
-public class ReviewReply {
+public class CommentReply {
 
     @Id
     @UuidGenerator
@@ -18,8 +18,8 @@ public class ReviewReply {
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "review_id", nullable = false)
-    private Review review;
+    @JoinColumn(name = "comment_id", nullable = false)
+    private ProductComment comment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shop_id", nullable = false)
