@@ -613,6 +613,17 @@ public class OrderService {
         return statusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(orderId);
     }
 
+    /**
+     * Delete all order history for an order (for admin delete functionality)
+     */
+    @Transactional
+    public void deleteOrderHistory(String orderId) {
+        List<OrderStatusHistory> histories = statusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(orderId);
+        if (!histories.isEmpty()) {
+            statusHistoryRepository.deleteAll(histories);
+        }
+    }
+
     // ── Private helpers ────────────────────────────────────────────────
 
     private Order getOrderForSeller(String sellerId, String orderId) {
