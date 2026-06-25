@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/products/{productId}")
 @RequiredArgsConstructor
@@ -59,10 +61,19 @@ public class ReviewCommentController {
             @PathVariable String productId,
             @RequestParam(required = false) Integer rating,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            String email = null;
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String jwt = authHeader.substring(7);
+                if (jwtUtils.validateToken(jwt)) {
+                    email = jwtUtils.getEmailFromToken(jwt);
+                }
+            }
+            
             Pageable pageable = PageRequest.of(page, size);
-            Page<ReviewResponse> response = reviewCommentService.getReviews(productId, rating, pageable);
+            Page<ReviewResponse> response = reviewCommentService.getReviews(productId, rating, pageable, email);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
@@ -90,11 +101,163 @@ public class ReviewCommentController {
             @PathVariable String productId,
             @RequestParam(defaultValue = "false") boolean buyerOnly,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            String email = null;
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String jwt = authHeader.substring(7);
+                if (jwtUtils.validateToken(jwt)) {
+                    email = jwtUtils.getEmailFromToken(jwt);
+                }
+            }
+            
             Pageable pageable = PageRequest.of(page, size);
-            Page<CommentResponse> response = reviewCommentService.getComments(productId, buyerOnly, pageable);
+            Page<CommentResponse> response = reviewCommentService.getComments(productId, buyerOnly, pageable, email);
             return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+
+    @PostMapping("/comments/{commentId}/reply")
+    public ResponseEntity<?> replyToComment(
+            @PathVariable String productId,
+            @PathVariable String commentId,
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody CommentReplyRequest request) {
+        try {
+            String email = getEmail(authHeader);
+            CommentReplyResponse response = reviewCommentService.createCommentReply(
+                    email, commentId, request.getContent()
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+
+    @PutMapping("/comments/{commentId}/reply/{replyId}")
+    public ResponseEntity<?> updateCommentReply(
+            @PathVariable String productId,
+            @PathVariable String commentId,
+            @PathVariable String replyId,
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody CommentReplyRequest request) {
+        try {
+            String email = getEmail(authHeader);
+            CommentReplyResponse response = reviewCommentService.updateCommentReply(
+                    email, replyId, request.getContent()
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/comments/{commentId}/reply/{replyId}")
+    public ResponseEntity<?> deleteCommentReply(
+            @PathVariable String productId,
+            @PathVariable String commentId,
+            @PathVariable String replyId,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String email = getEmail(authHeader);
+            reviewCommentService.deleteCommentReply(email, replyId);
+            return ResponseEntity.ok(new MessageResponse("Đã xóa phản hồi thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/comments/{commentId}/replies")
+    public ResponseEntity<?> getCommentReplies(
+            @PathVariable String productId,
+            @PathVariable String commentId) {
+        try {
+            List<CommentReplyResponse> replies = reviewCommentService.getCommentReplies(commentId);
+            return ResponseEntity.ok(replies);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+
+    @PostMapping("/reviews/{reviewId}/reply")
+    public ResponseEntity<?> replyToReview(
+            @PathVariable String productId,
+            @PathVariable String reviewId,
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody CommentReplyRequest request) {
+        try {
+            String email = getEmail(authHeader);
+            ReviewReplyResponse response = reviewCommentService.createReviewReply(
+                    email, reviewId, request.getContent()
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PutMapping("/reviews/{reviewId}/reply/{replyId}")
+    public ResponseEntity<?> updateReviewReply(
+            @PathVariable String productId,
+            @PathVariable String reviewId,
+            @PathVariable String replyId,
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody CommentReplyRequest request) {
+        try {
+            String email = getEmail(authHeader);
+            ReviewReplyResponse response = reviewCommentService.updateReviewReply(
+                    email, replyId, request.getContent()
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/reviews/{reviewId}/reply/{replyId}")
+    public ResponseEntity<?> deleteReviewReply(
+            @PathVariable String productId,
+            @PathVariable String reviewId,
+            @PathVariable String replyId,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String email = getEmail(authHeader);
+            reviewCommentService.deleteReviewReply(email, replyId);
+            return ResponseEntity.ok(new MessageResponse("Đã xóa phản hồi thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+  
+    @GetMapping("/reviews/{reviewId}/replies")
+    public ResponseEntity<?> getReviewReplies(
+            @PathVariable String productId,
+            @PathVariable String reviewId) {
+        try {
+            List<ReviewReplyResponse> replies = reviewCommentService.getReviewReplies(reviewId);
+            return ResponseEntity.ok(replies);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+ 
+    @DeleteMapping("/comments/{commentId}")
+    public ResponseEntity<?> deleteComment(
+            @PathVariable String productId,
+            @PathVariable String commentId,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String email = getEmail(authHeader);
+            reviewCommentService.deleteComment(email, productId, commentId);
+            return ResponseEntity.ok(new MessageResponse("Đã xóa bình luận thành công"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }
