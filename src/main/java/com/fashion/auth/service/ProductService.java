@@ -168,8 +168,7 @@ public class ProductService {
     public Page<Product> getProductsBySeller(String email, String keyword, String status, Pageable pageable) {
 //        Shop shop = getShopByEmail(email);
 
-        Shop shop = new Shop();
-        shop.setId("009427f1-c388-5f58-bacd-744400e79a62");
+        Shop shop = getShopByEmail(email);
 
         Specification<Product> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -209,8 +208,7 @@ public class ProductService {
     @Transactional
     public Product createProductBySeller(String email, ProductSellerDto productData) {
         // 1. Khởi tạo và thiết lập Shop cố định (hoặc lấy từ email)
-        Shop shop = new Shop();
-        shop.setId("009427f1-c388-5f58-bacd-744400e79a62");
+        Shop shop = getShopByEmail(email);
 
         // 2. Map dữ liệu từ DTO sang Entity Product
         Product product = new Product();
@@ -235,7 +233,7 @@ public class ProductService {
 
         int orderCounter = 0; // Biến đếm phục vụ sortOrder ASC
 
-        if (productData.getImageUrl() != null && !productData.getImages().isEmpty()) {
+        if (productData.getImageUrl() != null && !productData.getImageUrl().isBlank()) {
             ProductImage mainImg = new ProductImage();
             mainImg.setImageUrl(productData.getImageUrl());
             mainImg.setProduct(product);
@@ -251,6 +249,7 @@ public class ProductService {
                     ProductImage subImg = new ProductImage();
                     subImg.setImageUrl(subImgUrl);
                     subImg.setProduct(product);
+                    subImg.setPrimary(false);
                     subImg.setSortOrder(orderCounter++);
                     productImages.add(subImg);
                 }
@@ -268,8 +267,7 @@ public class ProductService {
     }
 
     public Product getProductByIdAndSeller(String id, String email) {
-        Shop shop = new Shop();
-        shop.setId("009427f1-c388-5f58-bacd-744400e79a62");
+        Shop shop = getShopByEmail(email);
 
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm."));
@@ -299,13 +297,6 @@ public class ProductService {
         product.setStock(requestDto.getStock());
         product.setDescription(requestDto.getDescription());
         product.setConditionStatus(requestDto.getConditionStatus());
-
-        // (Tùy chọn) Cập nhật Category nếu bạn có CategoryRepository
-//        if (requestDto.getCategoryId() != null) {
-//            Category category = categoryRepository.findById(requestDto.getCategoryId())
-//                    .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục"));
-//            product.setCategory(category);
-//        }
 
         productImageRepository.deleteByProductId(product.getId());
 
@@ -353,8 +344,7 @@ public class ProductService {
     public byte[] exportInventoryToCsv(String email) {
 //        Shop shop = getShopByEmail(email);
 
-        Shop shop = new Shop();
-        shop.setId("009427f1-c388-5f58-bacd-744400e79a62");
+        Shop shop = getShopByEmail(email);
 
         List<Product> products = productRepository.findByShopId(shop.getId());
 
