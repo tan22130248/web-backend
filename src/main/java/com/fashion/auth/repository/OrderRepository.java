@@ -39,6 +39,30 @@ public interface OrderRepository extends JpaRepository<Order, String>, JpaSpecif
     @Query(value = "SELECT DATE(created_at) as label, SUM(total_amount) as value FROM orders WHERE shop_id = :shopId AND status = 'delivered' AND created_at >= :startDate GROUP BY DATE(created_at) ORDER BY DATE(created_at)", nativeQuery = true)
     List<Map<String, Object>> getRevenueChartData(@Param("shopId") String shopId, @Param("startDate") java.time.LocalDateTime startDate);
 
+    // native query to group revenue by date for specific month/year
+    @Query(value = "SELECT DATE(created_at) as label, SUM(total_amount) as value " +
+                   "FROM orders " +
+                   "WHERE shop_id = :shopId AND status = 'delivered' " +
+                   "AND MONTH(created_at) = :month AND YEAR(created_at) = :year " +
+                   "GROUP BY DATE(created_at) " +
+                   "ORDER BY DATE(created_at)", nativeQuery = true)
+    List<Map<String, Object>> getRevenueChartDataByMonth(@Param("shopId") String shopId,
+                                                         @Param("month") Integer month,
+                                                         @Param("year") Integer year);
+
+    // native query to group revenue by date for specific month/year within last X days
+    @Query(value = "SELECT DATE(created_at) as label, SUM(total_amount) as value " +
+                   "FROM orders " +
+                   "WHERE shop_id = :shopId AND status = 'delivered' " +
+                   "AND MONTH(created_at) = :month AND YEAR(created_at) = :year " +
+                   "AND created_at >= :startDate " +
+                   "GROUP BY DATE(created_at) " +
+                   "ORDER BY DATE(created_at)", nativeQuery = true)
+    List<Map<String, Object>> getRevenueChartDataByMonthAndDays(@Param("shopId") String shopId,
+                                                                @Param("month") Integer month,
+                                                                @Param("year") Integer year,
+                                                                @Param("startDate") java.time.LocalDateTime startDate);
+
     // native query to group revenue by category
     @Query(value = "SELECT c.name as categoryName, SUM(oi.total_price) as revenue " +
                    "FROM order_items oi " +
@@ -48,6 +72,19 @@ public interface OrderRepository extends JpaRepository<Order, String>, JpaSpecif
                    "WHERE o.shop_id = :shopId AND o.status = 'delivered' " +
                    "GROUP BY c.id, c.name", nativeQuery = true)
     List<Map<String, Object>> getCategoryRevenueData(@Param("shopId") String shopId);
+
+    // native query to group revenue by category filtered by month and year
+    @Query(value = "SELECT c.name as categoryName, SUM(oi.total_price) as revenue " +
+                   "FROM order_items oi " +
+                   "JOIN orders o ON oi.order_id = o.id " +
+                   "JOIN products p ON oi.product_id = p.id " +
+                   "JOIN categories c ON p.category_id = c.id " +
+                   "WHERE o.shop_id = :shopId AND o.status = 'delivered' " +
+                   "AND MONTH(o.created_at) = :month AND YEAR(o.created_at) = :year " +
+                   "GROUP BY c.id, c.name", nativeQuery = true)
+    List<Map<String, Object>> getCategoryRevenueDataByMonth(@Param("shopId") String shopId, 
+                                                            @Param("month") Integer month, 
+                                                            @Param("year") Integer year);
 }
 
 
