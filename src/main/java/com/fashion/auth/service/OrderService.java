@@ -35,6 +35,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
     private final ReviewRepository reviewRepository;
+    private final ShopPointService shopPointService;
 
     public record OrderItemRequest(String productId, String variantId, int quantity) {
     }
@@ -52,7 +53,8 @@ public class OrderService {
             UserRepository userRepository,
             NotificationRepository notificationRepository,
             ReviewRepository reviewRepository,
-            GhnService ghnService) {
+            GhnService ghnService,
+            ShopPointService shopPointService) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.statusHistoryRepository = statusHistoryRepository;
@@ -65,6 +67,7 @@ public class OrderService {
         this.notificationRepository = notificationRepository;
         this.reviewRepository = reviewRepository;
         this.ghnService = ghnService;
+        this.shopPointService = shopPointService;
     }
 
     public BigDecimal calculateTotalFee(Integer toDistrictId, String toWardCode, List<OrderItemRequest> items) {
@@ -388,6 +391,9 @@ public class OrderService {
             productRepository.save(product);
         }
 
+        // Tích điểm cho shop
+        shopPointService.awardPointsForDeliveredOrder(order);
+
         saveStatusHistory(order, "shipping", "delivered", "seller", "Đơn hàng đã giao thành công");
         sendNotification(order.getBuyer().getId(), "order",
                 "Đã giao hàng", "Đơn hàng của bạn đã được giao thành công");
@@ -467,6 +473,9 @@ public class OrderService {
             payment.setStatus(Payment.PaymentStatus.refunded);
             paymentRepository.save(payment);
         });
+
+        // Trừ điểm đã tích khi refund
+        shopPointService.deductPointsForRefund(order);
 
         saveStatusHistory(order, "delivered", "refunded", "buyer",
                 reason != null ? reason : "Buyer yêu cầu hoàn tiền");

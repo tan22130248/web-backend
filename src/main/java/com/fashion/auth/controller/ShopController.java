@@ -10,9 +10,11 @@ import com.fashion.auth.model.User;
 import com.fashion.auth.repository.ShopRepository;
 import com.fashion.auth.repository.UserRepository;
 import com.fashion.auth.security.JwtUtils;
+import com.fashion.auth.model.ShopPoint;
 import com.fashion.auth.service.ShopService;
 import com.fashion.auth.service.ShopRankingService;
 import com.fashion.auth.service.ShopRankingPopulationService;
+import com.fashion.auth.service.ShopPointService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,15 +34,17 @@ public class ShopController {
     private final ShopService shopService;
     private final ShopRankingService rankingService;
     private final ShopRankingPopulationService populationService;
+    private final ShopPointService shopPointService;
 
 
-    public ShopController(ShopRepository shopRepository, JwtUtils jwtUtils, UserRepository userRepository, ShopService shopService, ShopRankingService rankingService, ShopRankingPopulationService populationService) {
+    public ShopController(ShopRepository shopRepository, JwtUtils jwtUtils, UserRepository userRepository, ShopService shopService, ShopRankingService rankingService, ShopRankingPopulationService populationService, ShopPointService shopPointService) {
         this.shopRepository = shopRepository;
         this.jwtUtils = jwtUtils;
         this.userRepository = userRepository;
         this.shopService = shopService;
         this.rankingService = rankingService;
         this.populationService = populationService;
+        this.shopPointService = shopPointService;
     }
 
     /** GET /api/shops/{id} */
@@ -113,6 +117,38 @@ public class ShopController {
             if (shopData.getGhnShopId() != null) shop.setGhnShopId(shopData.getGhnShopId());
 
             return ResponseEntity.ok(ShopDto.from(shopRepository.save(shop)));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    /** GET /api/shops/my/points — tổng điểm + lịch sử */
+    @GetMapping("/my/points")
+    public ResponseEntity<?> getMyPoints(@RequestHeader("Authorization") String token) {
+        try {
+            String userId = getUserId(token);
+            Shop shop = shopRepository.findByUserId(userId)
+                    .orElseThrow(() -> new RuntimeException("Bạn chưa có cửa hàng"));
+
+            int totalPoints = shopPointService.getTotalPoints(shop.getId());
+            List<ShopPoint> history = shopPointService.getPointHistory(shop.getId());
+
+            List<Map<String, Object>> historyList = history.stream().map(sp -> {
+                Map<String, Object> item = new HashMap<>();
+                item.put("id", sp.getId());
+                item.put("pointsEarned", sp.getPointsEarned());
+                item.put("type", sp.getType());
+                item.put("reason", sp.getReason());
+                item.put("amount", sp.getAmount());
+                item.put("createdAt", sp.getCreatedAt());
+                return item;
+            }).toList();
+
+            return ResponseEntity.ok(Map.of(
+                    "totalPoints", totalPoints,
+                    "shopTotalPoints", shop.getTotalPoints(),
+                    "history", historyList
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
         }

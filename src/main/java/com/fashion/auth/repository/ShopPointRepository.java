@@ -5,7 +5,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface ShopPointRepository extends JpaRepository<ShopPoint, String> {
     @Query("SELECT SUM(sp.pointsEarned) FROM ShopPoint sp WHERE sp.shop.id = :shopId")
     Integer sumPointsByShopId(@Param("shopId") String shopId);
+
+    List<ShopPoint> findByShopIdOrderByCreatedAtDesc(String shopId);
+
+    boolean existsByOrderId(String orderId);
 }
