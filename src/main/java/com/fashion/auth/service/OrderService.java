@@ -89,14 +89,14 @@ public class OrderService {
             List<OrderItemRequest> shopItems = entry.getValue();
 
             int totalQuantity = shopItems.stream().mapToInt(OrderItemRequest::quantity).sum();
-            int weight = totalQuantity * 200; // Hardcode khối lượng mặc định 200g/sp
+            int weight = totalQuantity * 200; 
 
             com.fashion.auth.dto.ghn.GhnFeeRequest feeRequest = com.fashion.auth.dto.ghn.GhnFeeRequest.builder()
                     .toDistrictId(toDistrictId)
                     .toWardCode(toWardCode)
                     .weight(weight)
                     .insuranceValue(0)
-                    .serviceTypeId(2) // Giao hàng chuẩn
+                    .serviceTypeId(2) 
                     .build();
 
             try {
@@ -106,16 +106,11 @@ public class OrderService {
                 }
             } catch (Exception e) {
                 log.warn("Failed to calculate fee for shop: {}", shopId, e);
-                // Ignore or fallback to 0 fee if one shop fails
             }
         }
         return totalFee;
     }
 
-    /**
-     * Buyer đặt hàng — nhận danh sách items từ client (client-side cart).
-     * Tạo 1 order cho mỗi shop (nếu items thuộc nhiều shop khác nhau).
-     */
     @Transactional
     public List<Order> placeOrder(String buyerId, String shippingAddress, Integer toDistrictId, String toWardCode, String note,
             List<OrderItemRequest> items, String paymentMethod) {
@@ -126,12 +121,10 @@ public class OrderService {
             throw new RuntimeException("Danh sách sản phẩm không được trống");
         }
 
-        // Load tất cả products một lần
         List<String> productIds = items.stream().map(OrderItemRequest::productId).distinct().toList();
         Map<String, Product> productMap = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
-        // Validate tất cả items trước khi tạo order
         for (OrderItemRequest item : items) {
             Product product = productMap.get(item.productId());
             if (product == null) {
@@ -149,7 +142,6 @@ public class OrderService {
             }
         }
 
-        // Nhóm items theo shop
         Map<String, List<OrderItemRequest>> groupedByShop = items.stream()
                 .collect(Collectors.groupingBy(item -> productMap.get(item.productId()).getShop().getId()));
 
@@ -165,8 +157,7 @@ public class OrderService {
             BigDecimal totalAmount = BigDecimal.ZERO;
 
             int totalQuantity = shopItems.stream().mapToInt(OrderItemRequest::quantity).sum();
-            int weight = totalQuantity * 200; // Hardcode khối lượng mặc định 200g/sp
-
+            int weight = totalQuantity * 200; 
             BigDecimal shippingFee = BigDecimal.ZERO;
             com.fashion.auth.dto.ghn.GhnFeeRequest feeRequest = com.fashion.auth.dto.ghn.GhnFeeRequest.builder()
                     .toDistrictId(toDistrictId)
@@ -208,7 +199,6 @@ public class OrderService {
                 Product product = productMap.get(itemReq.productId());
                 BigDecimal unitPrice = product.getPrice();
 
-                // Nếu có variant, cộng thêm price modifier
                 ProductVariant variant = null;
                 if (itemReq.variantId() != null && !itemReq.variantId().isBlank()) {
                     variant = productVariantRepository.findById(itemReq.variantId()).orElse(null);
@@ -256,7 +246,6 @@ public class OrderService {
                 orderItemRepository.save(orderItem);
                 totalAmount = totalAmount.add(itemTotal);
 
-                // Giảm tồn kho
                 product.setStock(product.getStock() - itemReq.quantity());
                 productRepository.save(product);
             }
@@ -265,7 +254,6 @@ public class OrderService {
             order.setTotalAmount(totalAmount.add(order.getShippingFee()));
             orderRepository.save(order);
 
-            // Tạo payment record
             Payment payment = Payment.builder()
                     .order(order)
                     .method(isVnPay ? "vnpay" : "cod")
@@ -274,12 +262,10 @@ public class OrderService {
                     .build();
             paymentRepository.save(payment);
 
-            // Ghi lịch sử trạng thái
             String initialStatus = isVnPay ? "pending_payment" : "pending";
             saveStatusHistory(order, null, initialStatus, "system",
                     isVnPay ? "Đơn hàng chờ thanh toán VNPay" : "Đơn hàng được tạo");
 
-            // Chỉ thông báo seller ngay nếu COD (VNPay thông báo sau khi IPN confirm)
             if (!isVnPay) {
                 sendNotification(shop.getUser().getId(), "order",
                         "Đơn hàng mới", "Bạn có đơn hàng mới cần xác nhận");
@@ -292,7 +278,6 @@ public class OrderService {
         return orders;
     }
 
-    /** Seller xác nhận đơn hàng */
     @Transactional
     public Order confirmOrder(String sellerId, String orderId) {
         Order order = getOrderForSeller(sellerId, orderId);
@@ -308,7 +293,6 @@ public class OrderService {
         return order;
     }
 
-    /** Seller đánh dấu đã giao cho vận chuyển */
     @Transactional
     public Order shipOrder(String sellerId, String orderId) {
         Order order = getOrderForSeller(sellerId, orderId);
@@ -323,7 +307,7 @@ public class OrderService {
                     .code(oi.getProduct().getId())
                     .quantity(oi.getQuantity())
                     .price(oi.getUnitPrice().intValue())
-                    .weight(200) // Hardcoded 200g
+                    .weight(200) 
                     .build()
             ).toList();
 
@@ -331,7 +315,7 @@ public class OrderService {
             int codAmount = "cod".equals(order.getType()) ? order.getTotalAmount().intValue() : 0;
 
             com.fashion.auth.dto.ghn.GhnCreateOrderRequest ghnRequest = com.fashion.auth.dto.ghn.GhnCreateOrderRequest.builder()
-                .paymentTypeId(1) // 1: Shop trả cước
+                .paymentTypeId(1) 
                 .note(order.getNote() != null ? order.getNote() : "")
                 .requiredNote("CHOXEMHANGKHONGTHU")
                 .clientOrderCode(order.getOrderCode())
@@ -367,7 +351,6 @@ public class OrderService {
         return order;
     }
 
-    /** Đánh dấu đã giao thành công (demo: seller tự bấm) */
     @Transactional
     public Order deliverOrder(String sellerId, String orderId) {
         Order order = getOrderForSeller(sellerId, orderId);
@@ -376,14 +359,12 @@ public class OrderService {
         order.setStatus(Order.OrderStatus.delivered);
         orderRepository.save(order);
 
-        // Cập nhật payment
         paymentRepository.findByOrderId(orderId).ifPresent(payment -> {
             payment.setStatus(Payment.PaymentStatus.paid);
             payment.setPaidAt(java.time.LocalDateTime.now());
             paymentRepository.save(payment);
         });
 
-        // Cập nhật sold_count cho sản phẩm
         List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);
         for (OrderItem item : orderItems) {
             Product product = item.getProduct();
@@ -391,7 +372,6 @@ public class OrderService {
             productRepository.save(product);
         }
 
-        // Tích điểm cho shop
         shopPointService.awardPointsForDeliveredOrder(order);
 
         saveStatusHistory(order, "shipping", "delivered", "seller", "Đơn hàng đã giao thành công");
@@ -631,6 +611,26 @@ public class OrderService {
         if (!histories.isEmpty()) {
             statusHistoryRepository.deleteAll(histories);
         }
+    }
+
+    /**
+     * Delete an order and all its related data (for admin delete functionality)
+     * Handles deletion in the correct order to respect foreign key constraints
+     */
+    @Transactional
+    public void deleteOrder(String orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại"));
+
+        // Delete in order to avoid foreign key constraint violations:
+        
+        // 1. Delete order_status_history (no CASCADE)
+        deleteOrderHistory(orderId);
+        
+        // 2. Delete the order (will CASCADE delete: order_items, payments, reviews, review_replies, shop_points will be SET NULL)
+        orderRepository.delete(order);
+        
+        log.info("Order deleted: id={}, orderCode={}", orderId, order.getOrderCode());
     }
 
     // ── Private helpers ────────────────────────────────────────────────

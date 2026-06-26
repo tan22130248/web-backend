@@ -117,15 +117,14 @@ public class AdminOrderController {
             @PathVariable String id) {
         try {
             requireAdmin(token);
-            Order order = orderRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại"));
-
-            // Delete related records manually (those without CASCADE)
-            // 1. Delete order status history
-            orderService.deleteOrderHistory(id);
             
-            // 2. Delete order (will cascade delete order_items, payments, reviews with CASCADE)
-            orderRepository.delete(order);
+            // Verify order exists before attempting deletion
+            if (!orderRepository.existsById(id)) {
+                throw new RuntimeException("Đơn hàng không tồn tại");
+            }
+
+            // Delete order using service method that handles all dependencies
+            orderService.deleteOrder(id);
             
             return ResponseEntity.ok(message("Đã xóa đơn hàng thành công"));
         } catch (AdminAccessException e) {
