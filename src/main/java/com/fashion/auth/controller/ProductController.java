@@ -1,6 +1,7 @@
 package com.fashion.auth.controller;
 
 import com.fashion.auth.dto.AuthDto.MessageResponse;
+import com.fashion.auth.dto.ImageSearchResultDto;
 import com.fashion.auth.dto.ProductBatchDto;
 import com.fashion.auth.dto.ProductDto;
 import com.fashion.auth.dto.category.ProductFilterDto;
@@ -8,6 +9,7 @@ import com.fashion.auth.model.Product;
 import com.fashion.auth.model.ProductVariant;
 import com.fashion.auth.repository.ProductVariantRepository;
 import com.fashion.auth.security.JwtUtils;
+import com.fashion.auth.service.ImageSearchService;
 import com.fashion.auth.service.ProductService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,9 +17,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+
 
 @RestController
 @RequestMapping("/api/products")
@@ -27,14 +31,18 @@ public class ProductController {
     private final ProductService productService;
     private final ProductVariantRepository productVariantRepository;
     private final JwtUtils jwtUtils;
+    private final ImageSearchService imageSearchService;
 
     public ProductController(ProductService productService,
                              ProductVariantRepository productVariantRepository,
-                             JwtUtils jwtUtils) {
+                             JwtUtils jwtUtils,
+                             ImageSearchService imageSearchService) {
         this.productService = productService;
         this.productVariantRepository = productVariantRepository;
         this.jwtUtils = jwtUtils;
+        this.imageSearchService = imageSearchService;
     }
+
 
     /** GET /api/products?page=0&size=20&category=&keyword=&shop= */
     @GetMapping
@@ -172,4 +180,25 @@ public class ProductController {
     public ResponseEntity<Page<ProductDto>> filterProducts(ProductFilterDto filterRequest) {
         return ResponseEntity.ok(productService.getFilteredProducts(filterRequest).map(ProductDto::from));
     }
+
+    /**
+     * Tìm kiếm sản phẩm bằng hình ảnh (public).
+     * POST /api/products/image-search  (multipart/form-data, field "file")
+     * Trả về danh sách sản phẩm kèm độ tương đồng, đã sắp xếp giảm dần.
+     */
+    @PostMapping(value = "/image-search", consumes = "multipart/form-data")
+    public ResponseEntity<?> searchByImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(defaultValue = "24") int topK,
+            @RequestParam(defaultValue = "0.15") double minSimilarity) {
+        try {
+            List<ImageSearchResultDto> results =
+                    imageSearchService.searchByImage(file, topK, minSimilarity);
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
 }
+
+

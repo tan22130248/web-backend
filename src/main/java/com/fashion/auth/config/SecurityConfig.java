@@ -177,8 +177,10 @@ public class SecurityConfig {
                                 "/uploads/**"
                         ).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
-                                "/api/products/batch"
+                                "/api/products/batch",
+                                "/api/products/image-search"
                         ).permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
