@@ -73,6 +73,15 @@ public class ProductController {
         }
     }
 
+    /** GET /api/products/trusted-latest?page=0&size=12 */
+    @GetMapping("/trusted-latest")
+    public ResponseEntity<Page<ProductDto>> getTrustedLatestProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(productService.getTrustedLatestProducts(pageable).map(ProductDto::from));
+    }
+
     /** GET /api/products/{id} */
     @GetMapping("/{id}")
     public ResponseEntity<?> getProduct(@PathVariable String id) {

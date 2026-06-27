@@ -30,6 +30,7 @@ public class ProductDto {
     private String shopId;
     private String shopName;
     private String shopAvatarUrl;
+    private int shopTotalPoints;
 
     // Flattened category info
     private String categoryId;
@@ -54,6 +55,7 @@ public class ProductDto {
             dto.setShopId(p.getShop().getId());
             dto.setShopName(p.getShop().getShopName());
             dto.setShopAvatarUrl(p.getShop().getAvatarUrl());
+            dto.setShopTotalPoints(p.getShop().getTotalPoints());
         }
         if (p.getCategory() != null) {
             dto.setCategoryId(p.getCategory().getId());

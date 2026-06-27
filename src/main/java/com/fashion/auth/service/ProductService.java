@@ -45,6 +45,10 @@ public class ProductService {
         return productRepository.findByIsActiveTrue(pageable);
     }
 
+    public Page<Product> getTrustedLatestProducts(Pageable pageable) {
+        return productRepository.findTrustedLatestProducts(pageable);
+    }
+
     public List<Product> getByIds(List<String> ids) {
         return productRepository.findAllById(ids);
     }
@@ -129,13 +133,35 @@ public class ProductService {
 
     public Page<Product> getFilteredProducts(ProductFilterDto filter) {
 
-        Sort sort = Sort.by("soldCount").descending();
+        Sort sort = getProductSort(filter.getSortBy());
 
         Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), sort);
 
         Specification<Product> spec = filterProducts(filter);
 
         return productRepository.findAll(spec, pageable);
+    }
+
+    private Sort getProductSort(String sortBy) {
+        if (sortBy == null || sortBy.isBlank()) {
+            return trustedLatestSort();
+        }
+
+        return switch (sortBy) {
+            case "trustedLatest" -> trustedLatestSort();
+            case "createdAt,desc" -> Sort.by("createdAt").descending();
+            case "price,asc" -> Sort.by("price").ascending();
+            case "price,desc" -> Sort.by("price").descending();
+            case "soldCount,desc" -> Sort.by("soldCount").descending();
+            default -> trustedLatestSort();
+        };
+    }
+
+    private Sort trustedLatestSort() {
+        return Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("shop.totalPoints")
+        );
     }
 
     public Specification<Product> filterProducts(ProductFilterDto filter) {
