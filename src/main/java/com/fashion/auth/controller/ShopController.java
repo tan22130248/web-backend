@@ -168,6 +168,15 @@ public class ShopController {
         return user.getId();
     }
 
+
+    @GetMapping("/search")
+    public Map<String, Object> search(@RequestParam(required = false, defaultValue = "") String q) {
+        List<FeaturedShopDTO> data = shopService.searchShops(q);
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("data", data);
+        resp.put("count", data.size());
+        return resp;
+    }
     @GetMapping("/featured")
     public Map<String, Object> featured() {
         List<FeaturedShopDTO> data = shopService.getFeaturedShops();

@@ -46,6 +46,27 @@ public class ShopService {
         ).collect(Collectors.toList());
     }
 
+
+    public List<FeaturedShopDTO> searchShops(String keyword) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        if (normalizedKeyword.isEmpty()) {
+            return getFeaturedShops();
+        }
+
+        return shopRepository.searchShops(normalizedKeyword).stream()
+                .limit(12)
+                .map(s -> FeaturedShopDTO.builder()
+                        .id(s.getId())
+                        .name(s.getShopName())
+                        .rating(s.getAvgRating())
+                        .badge(s.getVerifiedAt() != null ? "Xác Nhận" : "")
+                        .category(s.getAddress())
+                        .imageUrl(s.getAvatarUrl())
+                        .tier(s.getTotalPoints() >= 1000 ? "Top seller" : "Uy tín")
+                        .icon("🏪")
+                        .build())
+                .collect(Collectors.toList());
+    }
     public WeeklyShopDTO getWeeklyShop() {
         // Get top 1 by totalPoints
         return rankingRepository.findAll().stream()

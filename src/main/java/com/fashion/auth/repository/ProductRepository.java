@@ -16,6 +16,10 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     Page<Product> findByCategoryIdAndIsActiveTrue(String categoryId, Pageable pageable);
     Page<Product> findByShopIdAndIsActiveTrue(String shopId, Pageable pageable);
 
+    @Query("SELECT p FROM Product p JOIN p.shop s WHERE p.isActive = true " +
+           "ORDER BY p.createdAt DESC, s.totalPoints DESC")
+    Page<Product> findTrustedLatestProducts(Pageable pageable);
+
     @Query("SELECT p FROM Product p WHERE p.isActive = true AND " +
            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
